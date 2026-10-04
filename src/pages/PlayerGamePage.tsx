@@ -3,18 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Wifi, 
   Trophy, 
-  History, 
   AlertTriangle, 
   CheckCircle,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  Play,
-  Timer,
   Star,
   Palette,
-  Wand2,
-  LayoutGrid
+  Wand2
 } from 'lucide-react';
 import { 
   subscribeToGame, 
@@ -23,16 +16,13 @@ import {
   updatePlayerMarkedCells, 
   submitBingoClaim,
   subscribeToDraws,
-  subscribeToClaims,
-  hostDrawNextItem,
-  updateGameStatus
+  subscribeToClaims
 } from '../services/gameService';
 import { LiveGame, Player, DrawItem, BingoCell, BingoClaim } from '../game/gameTypes';
 import { evaluateBingoPatterns, toMarkedKey } from '../game/patternEngine';
 import { SYSTEM_PATTERNS } from '../game/seedData';
 import { WinnerModal } from '../components/WinnerModal';
 import { ClassicBingoBall } from '../components/ClassicBingoBall';
-import { ClassicFlashboard } from '../components/ClassicFlashboard';
 import { sound } from '../game/soundEngine';
 
 type DauberColorId = 'red' | 'blue' | 'emerald' | 'purple' | 'pink' | 'amber';
@@ -72,12 +62,6 @@ export const PlayerGamePage: React.FC = () => {
   const [dauberColor, setDauberColor] = useState<DauberColorId>('red');
   const [autoDaub, setAutoDaub] = useState<boolean>(false);
   const [highlightCalled, setHighlightCalled] = useState<boolean>(true);
-  const [showFlashboard, setShowFlashboard] = useState<boolean>(false);
-
-  // Solo / Quick Caller Controls
-  const [autoCallerActive, setAutoCallerActive] = useState<boolean>(false);
-  const [callingNext, setCallingNext] = useState<boolean>(false);
-  const autoCallerTimerRef = useRef<any>(null);
   const lastAnnouncedDrawIdRef = useRef<string | null>(null);
 
   const [winnerModalData, setWinnerModalData] = useState<{
@@ -109,10 +93,6 @@ export const PlayerGamePage: React.FC = () => {
       try {
         setLoading(true);
         const storedNick = localStorage.getItem(`cyber_bingo_nick_${gameId}`) || 'Player 1';
-        const isSoloSession = localStorage.getItem(`classic_bingo_solo_${gameId}`) === 'true';
-        if (isSoloSession) {
-          setAutoCallerActive(true);
-        }
 
         const p = await joinGameRoom(gameId, storedNick);
         setPlayer(p);
@@ -179,7 +159,6 @@ export const PlayerGamePage: React.FC = () => {
       if (unsubPlayer) unsubPlayer();
       if (unsubDraws) unsubDraws();
       if (unsubClaims) unsubClaims();
-      if (autoCallerTimerRef.current) clearInterval(autoCallerTimerRef.current);
     };
   }, [gameId]);
 
@@ -242,46 +221,6 @@ export const PlayerGamePage: React.FC = () => {
       }
     }
   }, [draws, autoDaub, player, game, drawnValuesSet]);
-
-  // Auto-Caller Loop (when playing Solo or Quick Mode)
-  useEffect(() => {
-    if (!autoCallerActive || !game || game.status !== 'ACTIVE') {
-      if (autoCallerTimerRef.current) clearInterval(autoCallerTimerRef.current);
-      return;
-    }
-
-    // Draw first ball immediately if 0 balls drawn
-    if (draws.length === 0) {
-      hostDrawNextItem(game.id);
-    }
-
-    const intervalMs = game.configSnapshot.draw.intervalMs || 4500;
-    autoCallerTimerRef.current = setInterval(async () => {
-      const next = await hostDrawNextItem(game.id);
-      if (!next) {
-        setAutoCallerActive(false);
-      }
-    }, intervalMs);
-
-    return () => {
-      if (autoCallerTimerRef.current) clearInterval(autoCallerTimerRef.current);
-    };
-  }, [autoCallerActive, game?.status, game?.id, draws.length]);
-
-  // Manual Call Next Ball from Player screen
-  const handleManualCallNext = async () => {
-    if (!game || callingNext) return;
-    setCallingNext(true);
-    sound.playClick();
-    try {
-      if (game.status === 'LOBBY') {
-        await updateGameStatus(game.id, 'ACTIVE', game.hostId);
-      }
-      await hostDrawNextItem(game.id);
-    } finally {
-      setCallingNext(false);
-    }
-  };
 
   // Check if player currently satisfies any active winning pattern
   const currentWinningCheck = useMemo(() => {
@@ -366,7 +305,6 @@ export const PlayerGamePage: React.FC = () => {
     }
 
     setClaimLoading(true);
-    setAutoCallerActive(false);
     sound.playClick();
 
     try {
@@ -478,35 +416,8 @@ export const PlayerGamePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Caller Controls for Solo or Active Play */}
+        {/* Player Score & Status */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleManualCallNext}
-            disabled={callingNext || game.status === 'FINISHED'}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-40"
-          >
-            <Play className="w-3.5 h-3.5 fill-slate-950" />
-            <span>CALL NEXT BALL</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playClick();
-              if (game.status === 'LOBBY') {
-                updateGameStatus(game.id, 'ACTIVE', game.hostId);
-              }
-              setAutoCallerActive(!autoCallerActive);
-            }}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
-              autoCallerActive
-                ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300 shadow-md shadow-emerald-500/20'
-                : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
-            }`}
-          >
-            <Timer className="w-3.5 h-3.5" />
-            <span>{autoCallerActive ? 'AUTO-CALLER: ON' : 'AUTO-CALLER: OFF'}</span>
-          </button>
-
           <div
             className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-amber-500/40 text-right shadow-inner"
             title="+10 PTS per daubed number | +100 Base Win + Rank Bonus on BINGO! | -25 PTS on False Claim"
@@ -541,22 +452,14 @@ export const PlayerGamePage: React.FC = () => {
           <div>
             <div className="text-[11px] font-bold text-amber-300 tracking-wider uppercase flex items-center gap-1.5">
               <span>BALL #{draws.length} OF 75</span>
-              {latestDraw && (
-                <button
-                  onClick={() => sound.announceBall(latestDraw.displayLabel)}
-                  className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200 hover:bg-amber-500/30 cursor-pointer"
-                >
-                  🔊 Repeat Call
-                </button>
-              )}
             </div>
             <div className="font-black text-2xl sm:text-4xl text-white tracking-tight mt-0.5">
-              {latestDraw ? latestDraw.displayLabel : 'Click "Call Next Ball" to Start!'}
+              {latestDraw ? latestDraw.displayLabel : 'Waiting for Host Caller to draw...'}
             </div>
           </div>
         </div>
 
-        {/* Last 5 Called Balls + Flashboard Button */}
+        {/* Last 5 Called Balls */}
         <div className="flex items-center gap-3 flex-wrap">
           {draws.length > 1 && (
             <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 px-3 py-2 rounded-xl">
@@ -566,27 +469,8 @@ export const PlayerGamePage: React.FC = () => {
               ))}
             </div>
           )}
-
-          <button
-            onClick={() => {
-              sound.playClick();
-              setShowFlashboard(!showFlashboard);
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 hover:bg-slate-800 text-xs font-bold text-amber-300 transition-colors cursor-pointer"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span>{showFlashboard ? 'HIDE FLASHBOARD' : `75-BALL BOARD (${draws.length})`}</span>
-            {showFlashboard ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
         </div>
       </div>
-
-      {/* Collapsible 75-Ball Master Flashboard */}
-      {showFlashboard && (
-        <div className="mb-4">
-          <ClassicFlashboard draws={draws} />
-        </div>
-      )}
 
       {/* Feedback Banner */}
       {claimFeedback && (
