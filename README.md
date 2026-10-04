@@ -66,3 +66,40 @@ A production-grade, configuration-driven, real-time multiplayer Bingo platform w
 - `/themes/{themeId}`: Visual styles
 - `/winningPatterns/{patternId}`: Custom and system winning patterns
 - `/auditLogs/{logId}`: Append-only administrative audit trail
+
+---
+
+## 🚀 Pushing to GitHub & Deploying to Cloudflare Pages
+
+### 1. Push Repository to GitHub
+```bash
+git init
+git add .
+git commit -m "feat: initial release of Classic Bingo Cyber Edition"
+git branch -M main
+git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+git push -u origin main
+```
+
+### 2. Deploy via Cloudflare Pages (GitHub Integration — Automatic CI/CD)
+1. Log in to the **[Cloudflare Dashboard](https://dash.cloudflare.com/)** → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
+2. Select your GitHub repository.
+3. Configure the **Build settings**:
+   - **Framework preset**: `Vite`
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+   - **Node.js version**: `20` (or `22`)
+4. *(Optional)* Under **Environment variables**, you can leave it empty to use `firebase-applet-config.json` out of the box, or define `VITE_FIREBASE_*` overrides from `.env.example`.
+5. Click **Save and Deploy**.
+   - Single-Page Application (SPA) routing (`/* /index.html 200`) and security headers are automatically configured via `public/_redirects` and `public/_headers`.
+
+### 3. Authorize Your Cloudflare Domain in Firebase Authentication
+Once Cloudflare gives you your `.pages.dev` URL (or custom domain):
+1. Open **[Firebase Console](https://console.firebase.google.com/)** → **Authentication** → **Settings** → **Authorized domains**.
+2. Click **Add domain** and enter your Cloudflare domain (e.g. `classic-bingo-cyber-edition.pages.dev` or your custom domain) so Google SSO and Firebase Auth work on production.
+
+### 4. Alternative: Direct CLI Deployment via Wrangler
+```bash
+npm run deploy:cf
+```
+
