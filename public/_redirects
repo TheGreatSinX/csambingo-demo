@@ -1,3 +1,0 @@
-# Cloudflare Pages SPA Fallback Rule
-# Routes all client-side React Router paths (/admin/*, /host/*, /play/*) to index.html
-/*    /index.html   200

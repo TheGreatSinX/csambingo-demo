@@ -1,0 +1,6 @@
+# robots.txt for Classic Bingo Cyber Edition
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /host/
+Disallow: /play/
