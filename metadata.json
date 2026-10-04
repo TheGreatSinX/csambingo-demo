@@ -1,0 +1,6 @@
+{
+  "name": "Cyber Bingo",
+  "description": "Production-grade, configuration-driven real-time multiplayer Cyber Bingo platform with security operations aesthetic, custom rules, patterns, CMS, host console, and anti-cheat validation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

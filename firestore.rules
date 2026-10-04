@@ -1,0 +1,184 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Deny All Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'webdev.cybernetics@gmail.com';
+    }
+
+    function isPasswordAuth() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrappedAdmin() || 
+        isPasswordAuth() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users Collection (No public self-registration allowed; Admin-only) ---
+    match /users/{userId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Admins Collection ---
+    match /admins/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update: if isBootstrappedAdmin() || (isPasswordAuth() && request.auth.uid == adminId) || (isAdmin() && request.auth.uid != adminId);
+      allow delete: if isBootstrappedAdmin() || (isAdmin() && request.auth.uid != adminId);
+    }
+
+    // --- Games Collection ---
+    match /games/{gameId} {
+      allow get, list: if true; // Public can get game by ID and query games by PIN
+      allow create: if isValidId(gameId) &&
+        incoming().keys().hasAll(['id', 'pin', 'title', 'status', 'hostId', 'configSnapshot', 'drawCount', 'drawHistory', 'winners', 'createdAt', 'playerCount']) &&
+        incoming().id == gameId &&
+        incoming().pin is string && incoming().pin.size() == 6 &&
+        incoming().status == 'LOBBY' &&
+        incoming().title is string && incoming().title.size() <= 100 &&
+        incoming().playerCount is number;
+      
+      allow update: if isValidId(gameId) && (
+        isAdmin() ||
+        (
+          incoming().id == existing().id &&
+          incoming().pin == existing().pin &&
+          incoming().createdAt == existing().createdAt
+        )
+      );
+      allow delete: if isValidId(gameId);
+
+      // Subcollection: Players
+      match /players/{playerId} {
+        allow get, list: if true; // All players in the room can see participants in lobby/game
+        allow create: if isValidId(playerId) &&
+          incoming().keys().hasAll(['id', 'gameId', 'nickname', 'card', 'score', 'joinedAt']) &&
+          incoming().id == playerId &&
+          incoming().nickname is string && incoming().nickname.size() <= 50;
+        allow update: if isValidId(playerId) && (
+          // Player updates their marked cells or host updates scores
+          (incoming().id == existing().id && incoming().gameId == existing().gameId)
+        );
+        allow delete: if isValidId(playerId);
+      }
+
+      // Subcollection: Draws
+      match /draws/{drawId} {
+        allow get, list: if true; // All connected players listen to draws
+        allow create: if isValidId(drawId) &&
+          incoming().keys().hasAll(['id', 'gameId', 'value', 'sequence', 'drawnAt']) &&
+          incoming().value is string && incoming().value.size() <= 100;
+        allow update, delete: if isValidId(drawId);
+      }
+
+      // Subcollection: Claims
+      match /claims/{claimId} {
+        allow get, list: if true;
+        allow create: if isValidId(claimId) &&
+          incoming().keys().hasAll(['id', 'gameId', 'playerId', 'playerNickname', 'patternName', 'status', 'claimedAt']) &&
+          incoming().status == 'PENDING';
+        allow update: if isValidId(claimId); // Host or validation engine updates claim status
+        allow delete: if isValidId(claimId);
+      }
+
+      // Subcollection: Events
+      match /events/{eventId} {
+        allow get, list: if true;
+        allow create: if isValidId(eventId) &&
+          incoming().keys().hasAll(['id', 'gameId', 'type', 'message', 'timestamp']) &&
+          incoming().type is string && incoming().type.size() <= 100;
+        allow update, delete: if isValidId(eventId);
+      }
+    }
+
+    // --- Content CMS ---
+    match /content/{contentId} {
+      allow get, list: if true; // Games need to read content pool
+      allow create, update: if isAdmin() &&
+        isValidId(contentId) &&
+        incoming().keys().hasAll(['id', 'term', 'category', 'description']) &&
+        incoming().id == contentId &&
+        incoming().term is string && incoming().term.size() <= 120;
+      allow delete: if isAdmin() && isValidId(contentId);
+    }
+
+    // --- Questions Bank ---
+    match /questions/{questionId} {
+      allow get, list: if true; // Games need to read questions
+      allow create, update: if isAdmin() &&
+        isValidId(questionId) &&
+        incoming().keys().hasAll(['id', 'question', 'answer']) &&
+        incoming().id == questionId &&
+        incoming().question is string && incoming().question.size() <= 500;
+      allow delete: if isAdmin() && isValidId(questionId);
+    }
+
+    // --- Themes ---
+    match /themes/{themeId} {
+      allow get, list: if true; // Public read so game boards render themed
+      allow create, update: if isAdmin() &&
+        isValidId(themeId) &&
+        incoming().keys().hasAll(['id', 'name']) &&
+        incoming().id == themeId &&
+        incoming().name is string && incoming().name.size() <= 120;
+      allow delete: if isAdmin() && isValidId(themeId);
+    }
+
+    // --- Winning Patterns ---
+    match /winningPatterns/{patternId} {
+      allow get, list: if true; // Games validate patterns
+      allow create, update: if isAdmin() &&
+        isValidId(patternId) &&
+        incoming().keys().hasAll(['id', 'name', 'rows', 'cols']) &&
+        incoming().id == patternId &&
+        incoming().name is string && incoming().name.size() <= 120;
+      allow delete: if isAdmin() && isValidId(patternId);
+    }
+
+    // --- Game Templates ---
+    match /gameTemplates/{templateId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() &&
+        isValidId(templateId) &&
+        incoming().keys().hasAll(['name', 'mode', 'board', 'draw', 'rules', 'scoring', 'winningPatterns']) &&
+        incoming().name is string && incoming().name.size() <= 150;
+      allow delete: if isAdmin() && isValidId(templateId);
+    }
+
+    // --- Audit Logs ---
+    match /auditLogs/{logId} {
+      allow get, list: if true;
+      allow create: if isValidId(logId) &&
+        incoming().keys().hasAll(['id', 'actorId', 'actorEmail', 'action', 'resource', 'timestamp']) &&
+        incoming().id == logId; // System & app actions can append audit logs
+      allow update, delete: if false; // Audit logs are immutable append-only
+    }
+  }
+}

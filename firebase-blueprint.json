@@ -1,0 +1,238 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile in the application",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrator authorization record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "GAME_ADMIN", "CONTENT_ADMIN", "ANALYTICS_ADMIN"] },
+        "createdAt": { "type": "string" },
+        "mfaEnforced": { "type": "boolean" }
+      },
+      "required": ["id", "email", "role", "createdAt"]
+    },
+    "Game": {
+      "title": "Game",
+      "description": "A live or past Cyber Bingo game instance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "pin": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["LOBBY", "STARTING", "ACTIVE", "PAUSED", "WIN_DETECTED", "ROUND_COMPLETE", "FINISHED", "CANCELLED"] },
+        "hostId": { "type": "string" },
+        "configSnapshot": { "type": "object" },
+        "drawCount": { "type": "number" },
+        "currentDraw": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "pin", "title", "status", "hostId", "configSnapshot", "createdAt"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "Player session in a game",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "nickname": { "type": "string" },
+        "card": { "type": "array" },
+        "markedIndices": { "type": "array" },
+        "score": { "type": "number" },
+        "hasWon": { "type": "boolean" },
+        "connected": { "type": "boolean" },
+        "joinedAt": { "type": "string" }
+      },
+      "required": ["id", "gameId", "nickname", "card", "score", "joinedAt"]
+    },
+    "Draw": {
+      "title": "Draw",
+      "description": "Authoritative number or term draw in a game",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "value": { "type": "string" },
+        "displayLabel": { "type": "string" },
+        "sequence": { "type": "number" },
+        "drawnAt": { "type": "string" }
+      },
+      "required": ["id", "gameId", "value", "sequence", "drawnAt"]
+    },
+    "Claim": {
+      "title": "Claim",
+      "description": "Bingo claim submitted by a player",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "playerId": { "type": "string" },
+        "playerNickname": { "type": "string" },
+        "patternName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "VERIFIED", "REJECTED"] },
+        "claimedAt": { "type": "string" }
+      },
+      "required": ["id", "gameId", "playerId", "playerNickname", "patternName", "status", "claimedAt"]
+    },
+    "GameEvent": {
+      "title": "GameEvent",
+      "description": "Live event message in the game room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "gameId", "type", "message", "timestamp"]
+    },
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "Cybersecurity term or item in the CMS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "term": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "term", "category", "active", "createdAt"]
+    },
+    "QuestionItem": {
+      "title": "QuestionItem",
+      "description": "Cybersecurity question in the question bank",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "options": { "type": "array" },
+        "category": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "explanation": { "type": "string" },
+        "points": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "question", "answer", "category", "active", "createdAt"]
+    },
+    "Theme": {
+      "title": "Theme",
+      "description": "Visual theme configuration for Cyber Bingo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "secondaryColor": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "backgroundColor": { "type": "string" },
+        "textColor": { "type": "string" },
+        "cardBackground": { "type": "string" },
+        "cellRadius": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "primaryColor", "secondaryColor", "backgroundColor", "createdAt"]
+    },
+    "WinningPattern": {
+      "title": "WinningPattern",
+      "description": "Configurable winning pattern definition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "rows": { "type": "number" },
+        "cols": { "type": "number" },
+        "cells": { "type": "array" },
+        "isSystem": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "rows", "cols", "cells", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System and administrative audit record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "resource": { "type": "string" },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "actorEmail", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "User profiles"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "AdminUser" },
+      "description": "Admin privileges and RBAC roles"
+    },
+    "/games/{gameId}": {
+      "schema": { "$ref": "Game" },
+      "description": "Live game rooms and configuration snapshots"
+    },
+    "/games/{gameId}/players/{playerId}": {
+      "schema": { "$ref": "Player" },
+      "description": "Players in a specific game"
+    },
+    "/games/{gameId}/draws/{drawId}": {
+      "schema": { "$ref": "Draw" },
+      "description": "Authoritative game draws"
+    },
+    "/games/{gameId}/claims/{claimId}": {
+      "schema": { "$ref": "Claim" },
+      "description": "Bingo claim submissions"
+    },
+    "/games/{gameId}/events/{eventId}": {
+      "schema": { "$ref": "GameEvent" },
+      "description": "Real-time room events"
+    },
+    "/content/{contentId}": {
+      "schema": { "$ref": "ContentItem" },
+      "description": "CMS terms and challenges"
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "QuestionItem" },
+      "description": "Question bank items"
+    },
+    "/themes/{themeId}": {
+      "schema": { "$ref": "Theme" },
+      "description": "Theme styles"
+    },
+    "/winningPatterns/{patternId}": {
+      "schema": { "$ref": "WinningPattern" },
+      "description": "Custom and standard winning patterns"
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "AuditLog" },
+      "description": "Administrative audit trail"
+    }
+  }
+}
