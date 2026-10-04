@@ -181,6 +181,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin() && isValidId(entryId);
     }
 
+    // --- System Settings (Global Audio & Platform Controls) ---
+    match /systemSettings/{settingId} {
+      allow get, list: if true; // All connected player & host sessions listen to global settings in real time
+      allow create, update: if isAdmin() && isValidId(settingId);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
     // --- Audit Logs ---
     match /auditLogs/{logId} {
       allow get, list: if true;

@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
@@ -21,7 +22,8 @@ import {
   AdminUser,
   GameConfig,
   LiveGame,
-  HallOfFameEntry
+  HallOfFameEntry,
+  SystemSettingsConfig
 } from '../game/gameTypes';
 import {
   SEED_CYBER_TERMS,
@@ -533,5 +535,56 @@ export async function fetchAnalyticsSummary() {
       totalDraws: 0,
       patternFrequency: {},
     };
+  }
+}
+
+// 9. Global System Settings (Mute All Players real-time synchronization)
+const GLOBAL_SETTINGS_DOC_ID = 'global_config';
+
+export function subscribeToSystemSettings(
+  onUpdate: (settings: SystemSettingsConfig) => void
+): () => void {
+  const docRef = doc(db, 'systemSettings', GLOBAL_SETTINGS_DOC_ID);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        onUpdate(snap.data() as SystemSettingsConfig);
+      } else {
+        onUpdate({
+          id: GLOBAL_SETTINGS_DOC_ID,
+          muteAllPlayers: false,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    },
+    (err) => {
+      console.warn('System settings listener error:', err);
+    }
+  );
+}
+
+export async function updateMuteAllPlayersSetting(
+  muteAllPlayers: boolean,
+  actorEmail: string = 'admin'
+): Promise<void> {
+  const docRef = doc(db, 'systemSettings', GLOBAL_SETTINGS_DOC_ID);
+  const payload: SystemSettingsConfig = {
+    id: GLOBAL_SETTINGS_DOC_ID,
+    muteAllPlayers,
+    updatedAt: new Date().toISOString(),
+    updatedBy: actorEmail,
+  };
+  try {
+    await setDoc(docRef, sanitizeForFirestore(payload), { merge: true });
+    await appendAuditLog({
+      actorId: auth.currentUser?.uid || 'admin',
+      actorEmail,
+      action: muteAllPlayers ? 'GLOBAL_MUTE_ALL_PLAYERS_ENABLED' : 'GLOBAL_MUTE_ALL_PLAYERS_DISABLED',
+      resource: `systemSettings/${GLOBAL_SETTINGS_DOC_ID}`,
+      metadata: { muteAllPlayers },
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `systemSettings/${GLOBAL_SETTINGS_DOC_ID}`);
   }
 }

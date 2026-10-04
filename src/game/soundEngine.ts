@@ -4,7 +4,9 @@ class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private voiceEnabled: boolean = true;
+  private globalMuteAllPlayers: boolean = false;
   private cachedMaleVoice: SpeechSynthesisVoice | null = null;
+  private listeners: Set<() => void> = new Set();
 
   constructor() {
     // Pre-warm voices list when browser loads them asynchronously
@@ -17,6 +19,69 @@ class SoundEngine {
         window.speechSynthesis.onvoiceschanged = loadVoices;
       }
     }
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach((cb) => {
+      try {
+        cb();
+      } catch {}
+    });
+  }
+
+  /**
+   * Returns true if the current browser viewport is on the Host Caller Stage (/host*) or Admin Console (/admin*)
+   */
+  public isHostOrAdminRoute(): boolean {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname || '';
+    return path.startsWith('/host') || path.startsWith('/admin');
+  }
+
+  /**
+   * Returns true if Sound Effects (dauber pop, click, chimes) are muted.
+   * Only controlled by the user's local SFX mute button — NOT affected by global Caller mute!
+   */
+  public isEffectivelyMuted(): boolean {
+    return this.isMuted;
+  }
+
+  /**
+   * Returns true if the Voice Caller announcement is allowed to speak:
+   * - Must not be locally muted and voiceEnabled must be true
+   * - If Admin "Mute All Players" is ON, the Voice Caller is muted on all Player screens (/game/*, /)
+   *   so the Voice Caller announcement comes exclusively from the Host Caller Stage (/host*)!
+   */
+  public isCallerVoiceEffectivelyEnabled(): boolean {
+    if (this.isMuted || !this.voiceEnabled) return false;
+    if (this.globalMuteAllPlayers && !this.isHostOrAdminRoute()) {
+      return false;
+    }
+    return true;
+  }
+
+  public setGlobalMuteAllPlayers(muted: boolean) {
+    if (this.globalMuteAllPlayers !== muted) {
+      this.globalMuteAllPlayers = muted;
+      // If a player session is active and global caller mute was just turned on, immediately cancel any ongoing speech
+      if (muted && !this.isHostOrAdminRoute() && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {}
+      }
+      this.notifyListeners();
+    }
+  }
+
+  public getGlobalMuteAllPlayers(): boolean {
+    return this.globalMuteAllPlayers;
   }
 
   private initCtx() {
@@ -100,6 +165,12 @@ class SoundEngine {
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+    if (muted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    this.notifyListeners();
   }
 
   public getIsMuted(): boolean {
@@ -108,6 +179,12 @@ class SoundEngine {
 
   public setVoiceEnabled(enabled: boolean) {
     this.voiceEnabled = enabled;
+    if (!enabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    this.notifyListeners();
   }
 
   public getVoiceEnabled(): boolean {
@@ -116,7 +193,7 @@ class SoundEngine {
 
   // Authentic Ink Dauber "Thump / Pop" sound
   public playDaub() {
-    if (this.isMuted) return;
+    if (this.isEffectivelyMuted()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -162,7 +239,7 @@ class SoundEngine {
 
   // Soft button click
   public playClick() {
-    if (this.isMuted) return;
+    if (this.isEffectivelyMuted()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -186,7 +263,7 @@ class SoundEngine {
 
   // MGM Grand Arena Championship Brass & Bell Chime when a new ball is drawn
   public playBallRoll() {
-    if (this.isMuted) return;
+    if (this.isEffectivelyMuted()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -233,7 +310,7 @@ class SoundEngine {
 
   // Clean, direct, professional Male Bingo Caller — announces only the drawn ball/term
   public announceBall(label: string) {
-    if (this.isMuted || !this.voiceEnabled) return;
+    if (!this.isCallerVoiceEffectivelyEnabled()) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     try {
@@ -268,7 +345,7 @@ class SoundEngine {
 
   // Triumphant Bingo Victory Fanfare & Clean Professional Caller Announcement
   public playBingoVictory(winnerNickname?: string, patternName?: string) {
-    if (this.isMuted) return;
+    if (this.isEffectivelyMuted()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -303,9 +380,10 @@ class SoundEngine {
         osc.stop(now + t + d);
       });
 
-      // Clean, professional Bingo Winner announcement with Winner Found & Winner Name
-      if (this.voiceEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      // Clean, professional Bingo Winner announcement with Winner Found & Winner Name (only if Caller Voice is enabled for this session)
+      if (this.isCallerVoiceEffectivelyEnabled() && typeof window !== 'undefined' && 'speechSynthesis' in window) {
         setTimeout(() => {
+          if (!this.isCallerVoiceEffectivelyEnabled()) return;
           try {
             window.speechSynthesis.cancel();
             const cleanName = winnerNickname?.trim();
@@ -330,7 +408,7 @@ class SoundEngine {
 
   // Error buzzer on false claim
   public playError() {
-    if (this.isMuted) return;
+    if (this.isEffectivelyMuted()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;

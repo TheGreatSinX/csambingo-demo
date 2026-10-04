@@ -413,22 +413,22 @@ export const PlayerGamePage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-3 sm:p-5 lg:p-6 bg-gradient-to-b from-[#0b0e1a] via-[#11172b] to-[#090c16] flex flex-col max-w-6xl mx-auto">
+    <div className="min-h-[calc(100vh-4rem)] p-2 sm:p-5 lg:p-6 pb-24 lg:pb-6 bg-gradient-to-b from-[#0b0e1a] via-[#11172b] to-[#090c16] flex flex-col max-w-6xl mx-auto">
       
-      {/* Top Hall Status Bar */}
-      <div className="bg-[#12182d]/95 border border-amber-500/30 rounded-2xl p-3 sm:p-4 mb-4 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono font-black text-xs sm:text-sm">
+      {/* Top Hall Status Bar — Compact on Mobile */}
+      <div className="bg-[#12182d]/95 border border-amber-500/30 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 mb-2.5 sm:mb-4 backdrop-blur-md flex items-center justify-between gap-2 shadow-xl">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono font-black text-[11px] sm:text-sm shrink-0">
             PIN: {game.pin}
           </div>
-          <div>
-            <div className="font-black text-sm sm:text-base text-white tracking-wide">
+          <div className="min-w-0">
+            <div className="font-black text-xs sm:text-base text-white tracking-wide truncate">
               {game.title}
             </div>
-            <div className="text-xs text-slate-400 flex items-center gap-2">
-              <span>Player: <b className="text-amber-300">{player.nickname}</b></span>
+            <div className="text-[11px] sm:text-xs text-slate-400 flex items-center gap-1.5 truncate">
+              <span className="truncate">Player: <b className="text-amber-300">{player.nickname}</b></span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+              <span className="flex items-center gap-1 text-emerald-400 font-semibold shrink-0">
                 <Wifi className="w-3 h-3" /> Live
               </span>
             </div>
@@ -436,112 +436,145 @@ export const PlayerGamePage: React.FC = () => {
         </div>
 
         {/* Player Score & Status */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div
-            className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-amber-500/40 text-right shadow-inner"
+            className="px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900 border border-amber-500/40 text-right shadow-inner"
             title="+10 PTS per daubed number | +100 Base Win + Rank Bonus on BINGO! | -25 PTS on False Claim"
           >
-            <div className="text-[9px] font-bold text-amber-300/80 uppercase tracking-wider">
+            <div className="text-[8px] sm:text-[9px] font-bold text-amber-300/80 uppercase tracking-wider">
               SCORE (+10/DAUB)
             </div>
-            <div className="font-mono font-black text-sm text-amber-400">
+            <div className="font-mono font-black text-xs sm:text-sm text-amber-400">
               {player.score || 0} PTS
             </div>
           </div>
         </div>
       </div>
 
-      {/* Live Caller Display & Recent Balls Tray */}
-      <div className="bg-gradient-to-r from-[#131b36] via-[#192347] to-[#131b36] border-2 border-amber-500/40 rounded-2xl p-4 mb-4 shadow-2xl flex flex-wrap items-center justify-between gap-4">
+      {/* Live Caller Display & Recent Balls Tray — Streamlined on Mobile */}
+      <div className="bg-gradient-to-r from-[#131b36] via-[#192347] to-[#131b36] border-2 border-amber-500/40 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 mb-2.5 sm:mb-4 shadow-2xl flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
         {/* Current Drawn Ball */}
-        <div className="flex items-center gap-4">
-          {latestDraw ? (
-            <ClassicBingoBall
-              value={latestDraw.value}
-              label={latestDraw.displayLabel}
-              size="lg"
-              animated={true}
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-slate-900 border-2 border-dashed border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-xs text-center p-2">
-              READY
-            </div>
-          )}
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+          <div className="shrink-0">
+            {latestDraw ? (
+              <>
+                <div className="sm:hidden">
+                  <ClassicBingoBall
+                    value={latestDraw.value}
+                    label={latestDraw.displayLabel}
+                    size="md"
+                    animated={true}
+                  />
+                </div>
+                <div className="hidden sm:block">
+                  <ClassicBingoBall
+                    value={latestDraw.value}
+                    label={latestDraw.displayLabel}
+                    size="lg"
+                    animated={true}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full bg-slate-900 border-2 border-dashed border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-[10px] sm:text-xs text-center p-1">
+                READY
+              </div>
+            )}
+          </div>
 
-          <div>
-            <div className="text-[11px] font-bold text-amber-300 tracking-wider uppercase flex items-center gap-1.5">
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-[11px] font-bold text-amber-300 tracking-wider uppercase flex items-center gap-1.5">
               <span>BALL #{draws.length} OF 75</span>
             </div>
-            <div className="font-black text-2xl sm:text-4xl text-white tracking-tight mt-0.5">
-              {latestDraw ? latestDraw.displayLabel : 'Waiting for Host Caller to draw...'}
+            <div className="font-black text-lg sm:text-4xl text-white tracking-tight mt-0.5 truncate">
+              {latestDraw ? latestDraw.displayLabel : 'Waiting for Host Caller...'}
             </div>
           </div>
         </div>
 
-        {/* Last 5 Called Balls */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {draws.length > 1 && (
-            <div className="flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 px-3 py-2 rounded-xl">
-              <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">PREVIOUS:</span>
-              {draws.slice(-6, -1).reverse().map((d) => (
-                <ClassicBingoBall key={d.id} value={d.value} size="sm" />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Last 5 Called Balls — Horizontal Scrollable Strip on Mobile */}
+        {draws.length > 1 && (
+          <div className="w-full sm:w-auto flex items-center gap-1.5 bg-slate-950/70 border border-slate-800 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl overflow-x-auto">
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase mr-1 shrink-0">PREV:</span>
+            {draws.slice(-6, -1).reverse().map((d) => (
+              <div key={d.id} className="shrink-0">
+                <ClassicBingoBall value={d.value} size="sm" />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Feedback Banner */}
       {claimFeedback && (
-        <div className={`p-3.5 rounded-xl mb-4 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg ${
+        <div className={`p-2.5 sm:p-3.5 rounded-xl mb-2.5 sm:mb-4 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg ${
           claimFeedback.type === 'success'
             ? 'bg-emerald-950/90 border-2 border-emerald-400 text-emerald-200'
             : 'bg-red-950/90 border-2 border-red-400 text-red-200'
         }`}>
           {claimFeedback.type === 'success' ? (
-            <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-emerald-400" />
           ) : (
-            <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-red-400" />
           )}
           <span>{claimFeedback.message}</span>
         </div>
       )}
 
       {/* Main Content Area: Classic Bingo Card + Dauber Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start mb-4">
         
         {/* Center / Left: The Official Classic 5x5 Bingo Card (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col items-center">
-          <div className="w-full max-w-xl bg-gradient-to-b from-amber-200 via-amber-100 to-amber-200 p-2.5 sm:p-4 rounded-3xl shadow-2xl border-4 border-amber-400">
+        <div className="lg:col-span-8 flex flex-col items-center w-full">
+          <div className="w-full max-w-xl bg-gradient-to-b from-amber-200 via-amber-100 to-amber-200 p-1.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-amber-400">
             
             {/* Inner Card Frame */}
-            <div className="bg-[#101629] rounded-2xl p-2.5 sm:p-4 border-2 border-amber-500/40">
+            <div className="bg-[#101629] rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-amber-500/40 sm:border-2">
               
-              {/* Card Top Serial & Title */}
-              <div className="flex items-center justify-between text-[11px] font-bold text-amber-300/90 px-1 mb-2">
+              {/* Card Top Serial & Quick Mobile Dauber Swatches */}
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-amber-300/90 px-0.5 mb-1.5 sm:mb-2">
                 <span>OFFICIAL 75-BALL CARD</span>
-                <span className="font-mono">CARD #{player.id.slice(-4).toUpperCase()}</span>
+                <div className="flex items-center gap-1.5">
+                  {/* Mobile Quick Dauber Ink Swatches */}
+                  <div className="flex lg:hidden items-center gap-1 mr-1">
+                    {DAUBER_COLORS.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => {
+                          sound.playDaub();
+                          setDauberColor(d.id);
+                        }}
+                        aria-label={`Select ${d.name}`}
+                        className={`w-4 h-4 rounded-full ${d.swatch} border transition-transform ${
+                          dauberColor === d.id ? 'scale-125 border-white ring-2 ring-amber-300' : 'border-white/50 opacity-75'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono">#{player.id.slice(-4).toUpperCase()}</span>
+                </div>
               </div>
 
               {/* B - I - N - G - O Column Headers */}
-              <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-2.5 sm:mb-3 text-center">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-3 mb-1.5 sm:mb-3 text-center">
                 {columnHeaders.map((col) => (
                   <div
                     key={col.letter}
-                    className={`${col.bg} border-2 ${col.border} rounded-xl py-1.5 sm:py-2 shadow-md flex flex-col items-center justify-center`}
+                    className={`${col.bg} border sm:border-2 ${col.border} rounded-lg sm:rounded-xl py-1 sm:py-2 shadow-md flex flex-col items-center justify-center`}
                   >
-                    <span className="font-black text-2xl sm:text-3xl text-white leading-none drop-shadow">
+                    <span className="font-black text-lg sm:text-3xl text-white leading-none drop-shadow">
                       {col.letter}
                     </span>
-                    <span className="text-[9px] font-bold text-white/85 tracking-wider mt-0.5">
+                    <span className="text-[8px] sm:text-[9px] font-bold text-white/85 tracking-wider mt-0.5">
                       {col.range}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* 5x5 Classic Number Squares */}
-              <div className="grid grid-cols-5 gap-2 sm:gap-3">
+              {/* 5x5 Classic Number Squares — Optimized for Mobile Touch & Readability */}
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
                 {player.card.map((row, r) =>
                   row.map((cell, c) => {
                     const key = toMarkedKey(r, c);
@@ -554,24 +587,25 @@ export const PlayerGamePage: React.FC = () => {
                       <button
                         key={cell.id}
                         onClick={() => handleCellClick(cell)}
-                        className={`relative aspect-square flex flex-col items-center justify-center p-1 rounded-2xl border-2 text-center transition-all transform select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+                        style={{ touchAction: 'manipulation' }}
+                        className={`relative aspect-square flex flex-col items-center justify-center p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border sm:border-2 text-center transition-all transform select-none cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-400 ${
                           cell.isFree
                             ? 'bg-gradient-to-br from-amber-400 via-yellow-400 to-orange-500 border-white text-slate-950 font-black shadow-inner'
                             : isReadyToMark
-                            ? 'bg-amber-50 border-amber-400 text-slate-900 ring-4 ring-amber-400/50 animate-pulse'
+                            ? 'bg-amber-50 border-amber-400 text-slate-900 ring-2 sm:ring-4 ring-amber-400/50 animate-pulse'
                             : 'bg-[#f8fafc] hover:bg-white border-slate-300 text-slate-900 shadow-sm'
-                        } ${isPartOfWin ? 'ring-4 ring-emerald-400 scale-[1.03] z-10' : ''}`}
+                        } ${isPartOfWin ? 'ring-2 sm:ring-4 ring-emerald-400 scale-[1.02] z-10' : ''}`}
                       >
                         {/* Free Space Star */}
                         {cell.isFree ? (
                           <div className="flex flex-col items-center justify-center">
-                            <Star className="w-6 h-6 sm:w-8 sm:h-8 fill-slate-950 text-slate-950 mb-0.5" />
-                            <span className="font-black text-[10px] sm:text-xs tracking-tighter uppercase leading-none">
+                            <Star className="w-4 h-4 sm:w-8 sm:h-8 fill-slate-950 text-slate-950 mb-0.5" />
+                            <span className="font-black text-[8px] sm:text-xs tracking-tighter uppercase leading-none">
                               FREE
                             </span>
                           </div>
                         ) : (
-                          <span className="font-black text-xl sm:text-3xl md:text-4xl tracking-tight text-slate-900 z-10">
+                          <span className="font-black text-base xs:text-lg sm:text-3xl md:text-4xl tracking-tight text-slate-900 z-10 leading-none">
                             {cell.displayLabel}
                           </span>
                         )}
@@ -579,7 +613,7 @@ export const PlayerGamePage: React.FC = () => {
                         {/* Authentic Circular Dauber Ink Stamp Overlay */}
                         {isMarked && !cell.isFree && (
                           <div
-                            className={`absolute inset-1.5 sm:inset-2 rounded-full ${activeDauber.stampBg} border-2 ${activeDauber.stampBorder} shadow-lg flex items-center justify-center transition-transform scale-100 pointer-events-none`}
+                            className={`absolute inset-1 sm:inset-2 rounded-full ${activeDauber.stampBg} border sm:border-2 ${activeDauber.stampBorder} shadow-lg flex items-center justify-center transition-transform scale-100 pointer-events-none`}
                             style={{
                               boxShadow: 'inset 0 2px 6px rgba(255,255,255,0.35), 0 4px 10px rgba(0,0,0,0.25)',
                             }}
@@ -588,12 +622,41 @@ export const PlayerGamePage: React.FC = () => {
 
                         {/* Hint Dot when called */}
                         {isReadyToMark && (
-                          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                          <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-amber-500 animate-ping" />
                         )}
                       </button>
                     );
                   })
                 )}
+              </div>
+
+              {/* Mobile Quick Assist Bar directly inside the card footer */}
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex lg:hidden items-center justify-between gap-2 text-[11px]">
+                <label className="flex items-center gap-1.5 text-slate-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoDaub}
+                    onChange={(e) => {
+                      sound.playClick();
+                      setAutoDaub(e.target.checked);
+                    }}
+                    className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer"
+                  />
+                  <span>Auto-Daub</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 text-slate-300 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={highlightCalled}
+                    onChange={(e) => {
+                      sound.playClick();
+                      setHighlightCalled(e.target.checked);
+                    }}
+                    className="w-3.5 h-3.5 accent-amber-400 rounded cursor-pointer"
+                  />
+                  <span>Glow Called</span>
+                </label>
               </div>
             </div>
           </div>
@@ -714,6 +777,36 @@ export const PlayerGamePage: React.FC = () => {
             </div>
           )}
 
+        </div>
+      </div>
+
+      {/* Sticky Mobile Bottom BINGO! Claim Bar (Visible on Phones/Tablets < lg) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-[#0b0e1a]/95 backdrop-blur-lg border-t border-amber-500/40 px-3 py-2.5 shadow-[0_-8px_30px_rgba(0,0,0,0.65)]">
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300 truncate">
+              {currentWinningCheck.hasWon
+                ? `🎉 ${currentWinningCheck.patternName}!`
+                : '5 IN A ROW / CORNERS'}
+            </div>
+            <div className="text-[11px] font-mono text-slate-300 truncate">
+              Score: <b className="text-amber-400">{player.score || 0} PTS</b>
+            </div>
+          </div>
+
+          <button
+            onClick={handleClaimBingo}
+            disabled={claimLoading}
+            style={{ touchAction: 'manipulation' }}
+            className={`px-6 py-3 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-2 shadow-xl shrink-0 cursor-pointer active:scale-95 ${
+              currentWinningCheck.hasWon
+                ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 text-slate-950 ring-2 ring-amber-200 animate-pulse'
+                : 'bg-gradient-to-r from-red-600 to-rose-700 text-white border border-red-400/50'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            <span>{claimLoading ? 'CHECKING...' : 'BINGO!'}</span>
+          </button>
         </div>
       </div>
 

@@ -15,8 +15,21 @@ import { useAuth } from '../context/AuthContext';
 export const Navbar: React.FC = () => {
   const [muted, setMuted] = useState(sound.getIsMuted());
   const [voiceOn, setVoiceOn] = useState(sound.getVoiceEnabled());
+  const [globalPlayersMuted, setGlobalPlayersMuted] = useState(sound.getGlobalMuteAllPlayers());
   const location = useLocation();
   const { user, isAdmin, role, logout } = useAuth();
+
+  React.useEffect(() => {
+    return sound.subscribe(() => {
+      setMuted(sound.getIsMuted());
+      setVoiceOn(sound.getVoiceEnabled());
+      setGlobalPlayersMuted(sound.getGlobalMuteAllPlayers());
+    });
+  }, []);
+
+  const isHostOrAdminView =
+    location.pathname.startsWith('/host') || location.pathname.startsWith('/admin');
+  const isCallerMutedByAdmin = globalPlayersMuted && !isHostOrAdminView;
 
   const toggleSound = () => {
     const next = !muted;
@@ -26,6 +39,7 @@ export const Navbar: React.FC = () => {
   };
 
   const toggleVoice = () => {
+    if (isCallerMutedByAdmin) return;
     const next = !voiceOn;
     sound.setVoiceEnabled(next);
     setVoiceOn(next);
@@ -40,26 +54,26 @@ export const Navbar: React.FC = () => {
           {/* Logo / Classic Bingo Brand */}
           <Link 
             to="/" 
-            className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-amber-400 rounded-lg p-1"
+            className="flex items-center gap-2 sm:gap-3 group focus:outline-none focus:ring-2 focus:ring-amber-400 rounded-lg p-1 min-w-0"
             onClick={() => sound.playClick()}
           >
-            <div className="flex items-center -space-x-1.5">
-              <span className="w-6 h-6 rounded-full bg-red-600 text-white font-black text-xs flex items-center justify-center border border-white/60 shadow">B</span>
-              <span className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center border border-white/60 shadow">I</span>
-              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center border border-white/60 shadow">N</span>
-              <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center border border-white/60 shadow">G</span>
-              <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-xs flex items-center justify-center border border-white/60 shadow">O</span>
+            <div className="flex items-center -space-x-1.5 shrink-0">
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-red-600 text-white font-black text-[10px] sm:text-xs flex items-center justify-center border border-white/60 shadow">B</span>
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] sm:text-xs flex items-center justify-center border border-white/60 shadow">I</span>
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-600 text-white font-black text-[10px] sm:text-xs flex items-center justify-center border border-white/60 shadow">N</span>
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-600 text-white font-black text-[10px] sm:text-xs flex items-center justify-center border border-white/60 shadow">G</span>
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-purple-600 text-white font-black text-[10px] sm:text-xs flex items-center justify-center border border-white/60 shadow">O</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-start gap-1">
-                <span className="font-extrabold text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 leading-tight">
+                <span className="font-extrabold text-sm sm:text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 leading-tight truncate">
                   CLASSIC BINGO
                 </span>
-                <sup className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-950/90 border border-cyan-400/50 text-cyan-300 shadow-sm -mt-0.5 select-none">
+                <sup className="hidden xs:inline-block sm:inline-block text-[8px] sm:text-[9px] font-mono font-bold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded bg-cyan-950/90 border border-cyan-400/50 text-cyan-300 shadow-sm -mt-0.5 select-none shrink-0">
                   Cyber Edition
                 </sup>
               </div>
-              <div className="text-[10px] font-mono text-amber-400/80 tracking-widest -mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-mono text-amber-400/80 tracking-widest -mt-0.5 truncate">
                 75-BALL GRAND HALL
               </div>
             </div>
@@ -70,24 +84,37 @@ export const Navbar: React.FC = () => {
             {/* Voice Caller Announcer Toggle */}
             <button
               onClick={toggleVoice}
-              aria-label={voiceOn ? 'Disable caller voice announcement' : 'Enable caller voice announcement'}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                voiceOn && !muted
-                  ? 'bg-amber-950/60 border-amber-500/40 text-amber-300 hover:bg-amber-900/60'
-                  : 'bg-slate-900/80 border-slate-700/60 text-slate-500 hover:text-slate-300'
+              disabled={isCallerMutedByAdmin}
+              aria-label={voiceOn && !muted && !isCallerMutedByAdmin ? 'Disable caller voice announcement' : 'Enable caller voice announcement'}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                isCallerMutedByAdmin
+                  ? 'bg-red-950/40 border-red-500/30 text-red-300/70 cursor-not-allowed'
+                  : voiceOn && !muted
+                  ? 'bg-amber-950/60 border-amber-500/40 text-amber-300 hover:bg-amber-900/60 cursor-pointer'
+                  : 'bg-slate-900/80 border-slate-700/60 text-slate-500 hover:text-slate-300 cursor-pointer'
               }`}
-              title={voiceOn ? 'Voice Caller Active ("B 12")' : 'Voice Caller Off'}
+              title={
+                isCallerMutedByAdmin
+                  ? 'Voice Caller muted on Player screens by Administrator (Host Caller announces exclusively)'
+                  : voiceOn
+                  ? 'Voice Caller Active ("B 12")'
+                  : 'Voice Caller Off'
+              }
             >
-              {voiceOn && !muted ? <Mic className="w-3.5 h-3.5 text-amber-400" /> : <MicOff className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">CALLER</span>
+              {voiceOn && !muted && !isCallerMutedByAdmin ? (
+                <Mic className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <MicOff className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">{isCallerMutedByAdmin ? 'CALLER (HOST ONLY)' : 'CALLER'}</span>
             </button>
 
-            {/* Audio SFX Toggle */}
+            {/* Audio SFX Toggle (Remains active so players can still hear their own dauber pop/click sounds) */}
             <button
               onClick={toggleSound}
               aria-label={muted ? 'Unmute bingo sound effects' : 'Mute bingo sound effects'}
               className="p-2 rounded-lg bg-slate-900/80 border border-slate-700/60 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-colors cursor-pointer"
-              title={muted ? 'Sound Effects Muted' : 'Sound Effects Active'}
+              title={muted ? 'Sound Effects Muted' : 'Sound Effects Active (Dauber & Click SFX)'}
             >
               {muted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
             </button>

@@ -262,3 +262,10 @@ export interface AdminUser {
   totpSecret?: string;
   lastLogin?: string;
 }
+
+export interface SystemSettingsConfig {
+  id: string;
+  muteAllPlayers: boolean;
+  updatedAt: string;
+  updatedBy?: string;
+}

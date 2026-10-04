@@ -23,12 +23,17 @@ import { AdminAuditPage } from './pages/admin/AdminAuditPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 import { AdminHallOfFamePage } from './pages/admin/AdminHallOfFamePage';
 
-import { seedInitialDataIfEmpty } from './services/adminService';
+import { seedInitialDataIfEmpty, subscribeToSystemSettings } from './services/adminService';
+import { sound } from './game/soundEngine';
 
 export default function App() {
-  // Automatically check and seed initial dataset on boot
+  // Automatically check and seed initial dataset on boot + subscribe to global Mute All Players setting
   useEffect(() => {
     seedInitialDataIfEmpty();
+    const unsubSettings = subscribeToSystemSettings((settings) => {
+      sound.setGlobalMuteAllPlayers(Boolean(settings.muteAllPlayers));
+    });
+    return () => unsubSettings();
   }, []);
 
   return (

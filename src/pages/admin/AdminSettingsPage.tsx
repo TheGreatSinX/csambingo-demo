@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Lock, 
@@ -11,14 +11,18 @@ import {
   Eye,
   EyeOff,
   Layout,
-  CheckCircle2
+  CheckCircle2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { 
   seedInitialDataIfEmpty, 
   resetEntireDatabase,
   ADMIN_SIDEBAR_ITEMS,
   getHiddenSidebarPaths,
-  setHiddenSidebarPaths
+  setHiddenSidebarPaths,
+  subscribeToSystemSettings,
+  updateMuteAllPlayersSetting
 } from '../../services/adminService';
 import { useAuth } from '../../context/AuthContext';
 import { sound } from '../../game/soundEngine';
@@ -31,6 +35,32 @@ export const AdminSettingsPage: React.FC = () => {
   const [resetDone, setResetDone] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [hiddenPaths, setHiddenPathsState] = useState<string[]>(() => getHiddenSidebarPaths());
+  const [muteAllPlayers, setMuteAllPlayers] = useState<boolean>(() => sound.getGlobalMuteAllPlayers());
+  const [updatingMute, setUpdatingMute] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeToSystemSettings((settings) => {
+      setMuteAllPlayers(Boolean(settings.muteAllPlayers));
+    });
+    return () => unsub();
+  }, []);
+
+  const handleToggleMuteAllPlayers = async () => {
+    if (updatingMute) return;
+    setUpdatingMute(true);
+    sound.playClick();
+    const nextValue = !muteAllPlayers;
+    setMuteAllPlayers(nextValue);
+    sound.setGlobalMuteAllPlayers(nextValue);
+    try {
+      await updateMuteAllPlayersSetting(
+        nextValue,
+        adminProfile?.email || 'juan.delacruz@company.com'
+      );
+    } finally {
+      setUpdatingMute(false);
+    }
+  };
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -84,8 +114,66 @@ export const AdminSettingsPage: React.FC = () => {
           SECURITY POSTURE & SYSTEM SETTINGS
         </h1>
         <p className="text-xs font-mono text-slate-400 mt-1">
-          Cryptographic controls, multi-factor enforcement, side panel visibility customization, and database management.
+          Cryptographic controls, global player audio management, multi-factor enforcement, side panel visibility customization, and database management.
         </p>
+      </div>
+
+      {/* Global Hall Audio Control: Mute All Players Toggle */}
+      <div className="bg-[#070c1a] border border-amber-500/40 rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5 max-w-2xl">
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 transition-colors ${
+              muteAllPlayers
+                ? 'bg-red-950/80 border-red-500/60 text-red-400'
+                : 'bg-amber-950/60 border-amber-500/50 text-amber-400'
+            }`}
+          >
+            {muteAllPlayers ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-cyber font-bold text-base text-white">
+                MUTE ALL PLAYERS CALLER VOICE (HOST-ONLY CALLER MODE)
+              </h2>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                  muteAllPlayers
+                    ? 'bg-red-950 border-red-500/50 text-red-300'
+                    : 'bg-emerald-950 border-emerald-500/50 text-emerald-300'
+                }`}
+              >
+                {muteAllPlayers ? 'PLAYER CALLER MUTED • HOST CALLER ONLY' : 'PLAYER CALLER ENABLED'}
+              </span>
+            </div>
+            <p className="text-xs font-mono text-slate-400 mt-1 leading-relaxed">
+              When enabled, this globally mutes the Voice Caller announcement on all connected Player screens so the Caller voice comes exclusively from the Host Caller Stage, while allowing players to still hear their own quiet ink-dauber pop and click sounds.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={updatingMute}
+          onClick={handleToggleMuteAllPlayers}
+          aria-pressed={muteAllPlayers}
+          className={`px-5 py-3 rounded-xl font-cyber font-bold text-xs tracking-wider flex items-center gap-2.5 border transition-all cursor-pointer disabled:opacity-50 ${
+            muteAllPlayers
+              ? 'bg-red-600 hover:bg-red-500 border-red-400 text-white shadow-lg shadow-red-600/30'
+              : 'bg-slate-900 hover:bg-slate-800 border-amber-500/50 text-amber-300'
+          }`}
+        >
+          {muteAllPlayers ? (
+            <>
+              <VolumeX className="w-4 h-4" />
+              <span>MUTE ALL PLAYERS: ON</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4" />
+              <span>MUTE ALL PLAYERS: OFF</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Side Panel Navigation Visibility Control Div */}
