@@ -1,12 +1,22 @@
-// Web Audio API Synthesizer & Speech Caller for Classic Bingo
+// Web Audio API Synthesizer & MGM Grand Arena Male Ring Announcer Voice Caller for Classic Bingo
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private voiceEnabled: boolean = true;
+  private cachedMaleVoice: SpeechSynthesisVoice | null = null;
 
   constructor() {
-    // AudioContext will be initialized on first user gesture
+    // Pre-warm voices list when browser loads them asynchronously
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        this.cachedMaleVoice = this.selectMgmArenaMaleVoice();
+      };
+      loadVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    }
   }
 
   private initCtx() {
@@ -19,6 +29,73 @@ class SoundEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
+  }
+
+  /**
+   * Selects a deep, commanding, resonant professional Male Announcer voice
+   * reminiscent of an MGM Grand Garden Arena championship ring announcer.
+   */
+  private selectMgmArenaMaleVoice(): SpeechSynthesisVoice | null {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const englishVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('en'));
+    if (englishVoices.length === 0) return voices[0] || null;
+
+    // Exclude known female voices so we never accidentally pick a high-pitched female voice
+    const femaleKeywords = [
+      'female', 'samantha', 'victoria', 'zira', 'aria', 'jenny', 'michelle',
+      'sonia', 'libby', 'clara', 'natasha', 'karen', 'moira', 'tessa',
+      'fiona', 'veena', 'allison', 'ava', 'susan', 'kathy', 'Vicki', 'serena'
+    ];
+
+    // Priority 1: Rich Natural / Studio Male Voices (Andrew, Christopher, Guy, Steffan, Eric, Roger, Ryan,Google UK English Male, Daniel, Alex, Fred, David)
+    const preferredMaleKeywords = [
+      'Christopher',
+      'Guy',
+      'Eric',
+      'Roger',
+      'Steffan',
+      'Andrew',
+      'Brian',
+      'Davis',
+      'Jason',
+      'Tony',
+      'Google UK English Male',
+      'Microsoft Guy',
+      'Microsoft Christopher',
+      'Microsoft Eric',
+      'Microsoft David',
+      'Microsoft Mark',
+      'Microsoft Ryan',
+      'Daniel',
+      'Alex',
+      'Oliver',
+      'Aaron',
+      'Arthur',
+      ' Gordon',
+      'Male',
+      'male',
+      'Fred'
+    ];
+
+    for (const keyword of preferredMaleKeywords) {
+      const found = englishVoices.find(
+        (v) =>
+          v.name.toLowerCase().includes(keyword.toLowerCase()) &&
+          !femaleKeywords.some((fem) => v.name.toLowerCase().includes(fem))
+      );
+      if (found) return found;
+    }
+
+    // Priority 2: Any English voice that does NOT match known female names
+    const nonFemaleEnglish = englishVoices.find(
+      (v) => !femaleKeywords.some((fem) => v.name.toLowerCase().includes(fem))
+    );
+    if (nonFemaleEnglish) return nonFemaleEnglish;
+
+    return englishVoices[0];
   }
 
   public setMuted(muted: boolean) {
@@ -107,7 +184,7 @@ class SoundEngine {
     } catch {}
   }
 
-  // Mechanical ball roll + cheerful game-show chime when a new ball is drawn
+  // MGM Grand Arena Championship Brass & Bell Chime when a new ball is drawn
   public playBallRoll() {
     if (this.isMuted) return;
     try {
@@ -115,37 +192,32 @@ class SoundEngine {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
 
-      // Happy bouncy ball pops
-      [0, 0.06, 0.12].forEach((delay, idx) => {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(420 + idx * 110, now + delay);
-        osc.frequency.exponentialRampToValueAtTime(680 + idx * 120, now + delay + 0.05);
+      // Deep arena drum / sub-bass impact
+      const subOsc = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(130, now);
+      subOsc.frequency.exponentialRampToValueAtTime(42, now + 0.22);
+      subGain.gain.setValueAtTime(0.28, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+      subOsc.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      subOsc.start(now);
+      subOsc.stop(now + 0.24);
 
-        gain.gain.setValueAtTime(0.14, now + delay);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.055);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now + delay);
-        osc.stop(now + delay + 0.055);
-      });
-
-      // Bright, happy two-note major sparkle ding (E5 -> G#5 -> B5)
-      const chimeNotes = [
-        { freq: 659.25, start: 0.16, dur: 0.12 },
-        { freq: 830.61, start: 0.22, dur: 0.14 },
-        { freq: 987.77, start: 0.28, dur: 0.22 },
+      // Championship Arena Bell / Brass Power Chord (D4 -> A4 -> D5)
+      const arenaNotes = [
+        { freq: 293.66, start: 0.04, dur: 0.28 },
+        { freq: 440.00, start: 0.10, dur: 0.32 },
+        { freq: 587.33, start: 0.16, dur: 0.45 },
       ];
-      chimeNotes.forEach(({ freq, start, dur }) => {
+      arenaNotes.forEach(({ freq, start, dur }) => {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now + start);
-        gain.gain.setValueAtTime(0.12, now + start);
+        gain.gain.setValueAtTime(0.15, now + start);
         gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -159,104 +231,33 @@ class SoundEngine {
     this.playBallRoll();
   }
 
-  // Cheerful, energetic Bingo Hall calls & rhymes for extra fun vibes
-  private getHappyBingoFlair(num: number): string {
-    const specialCalls: Record<number, string> = {
-      1: "Kelly's eye, number one!",
-      2: "One little duck, number two!",
-      3: "Cup of tea, number three!",
-      4: "Knock at the door, number four!",
-      5: "Man alive, number five!",
-      7: "Lucky, lucky seven!",
-      8: "Garden gate, number eight!",
-      9: "Doctor's orders, number nine!",
-      10: "Big ten, right on the mark!",
-      11: "Legs eleven! Wooo!",
-      12: "One dozen, number twelve!",
-      15: "Young and keen, fifteen!",
-      16: "Sweet sixteen!",
-      18: "Coming of age, eighteen!",
-      20: "One score, twenty!",
-      21: "Key of the door, twenty-one!",
-      22: "Two little ducks, quack quack, twenty-two!",
-      24: "Two dozen, twenty-four!",
-      25: "Duck and dive, twenty-five!",
-      30: "Dirty Gertie, number thirty!",
-      32: "Buckle my shoe, thirty-two!",
-      33: "All the threes, thirty-three!",
-      35: "Jump and jive, thirty-five!",
-      40: "Life begins at forty!",
-      44: "Droopy drawers, forty-four!",
-      45: "Halfway there, forty-five!",
-      50: "Half a century, golden fifty!",
-      55: "All the fives, fifty-five!",
-      60: "Five dozen, sixty!",
-      66: "Clickety click, sixty-six!",
-      70: "Three score and ten, seventy!",
-      71: "Bang on the drum, seventy-one!",
-      75: "Top of the shop, seventy-five!",
-    };
-
-    if (specialCalls[num]) {
-      return specialCalls[num];
-    }
-
-    const happyBoosters = [
-      "Daub it if you got it!",
-      "Check those cards!",
-      "Ooh, that's a lucky one!",
-      "Getting closer to Bingo!",
-      "Love to see it!",
-      "Keep those daubers ready!",
-      "Hot off the cage!",
-      "Let's go, let's go!",
-    ];
-    return happyBoosters[num % happyBoosters.length];
-  }
-
-  // Energetic, excited, and happy Voice Caller using Web Speech API
+  // Clean, direct, professional Male Bingo Caller — announces only the drawn ball/term
   public announceBall(label: string) {
     if (this.isMuted || !this.voiceEnabled) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
     try {
-      window.speechSynthesis.cancel(); // Stop prior callout
+      window.speechSynthesis.cancel(); // Clear prior announcement
 
-      const happyIntros = [
-        "Here we go!",
-        "Next up!",
-        "Hot ball rolling out!",
-        "Ooh, look at this!",
-        "Alrighty!",
-        "Let's go!",
-        "Eyes on your board!",
-        "Spinning the cage!",
-      ];
-      const randomIntro = happyIntros[Math.floor(Math.random() * happyIntros.length)];
-
-      let textToSpeak = `${randomIntro} ${label}!`;
+      let textToSpeak = label;
       const match = label.match(/^([BINGO])-?(\d+)$/i);
       if (match) {
         const letter = match[1].toUpperCase();
         const num = parseInt(match[2], 10);
-        const flair = this.getHappyBingoFlair(num);
-        textToSpeak = `${randomIntro} ${letter} ${num}! ${letter}, ${num}! ${flair}`;
+        // Professional Bingo Caller format: "B 12... B, 12."
+        textToSpeak = `${letter} ${num}. ... ${letter}, ${num}.`;
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      // Higher rate & pitch give an upbeat, smiling, energetic game-show host tone
-      utterance.rate = 1.12;
-      utterance.pitch = 1.24;
+      // Clear, resonant, authoritative professional male caller cadence
+      utterance.rate = 0.92;
+      utterance.pitch = 0.85;
       utterance.volume = 1.0;
 
-      // Prefer bright, expressive English voices
-      const voices = window.speechSynthesis.getVoices();
-      const livelyVoice =
-        voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google US English') || v.name.includes('Samantha') || v.name.includes('Aria') || v.name.includes('Zira') || v.name.includes('Natural'))) ||
-        voices.find(v => v.lang.startsWith('en'));
-
-      if (livelyVoice) {
-        utterance.voice = livelyVoice;
+      const maleVoice = this.cachedMaleVoice || this.selectMgmArenaMaleVoice();
+      if (maleVoice) {
+        this.cachedMaleVoice = maleVoice;
+        utterance.voice = maleVoice;
       }
 
       window.speechSynthesis.speak(utterance);
@@ -265,7 +266,7 @@ class SoundEngine {
     }
   }
 
-  // Triumphant classic bingo victory fanfare
+  // Triumphant Bingo Victory Fanfare & Clean Professional Caller Announcement
   public playBingoVictory() {
     if (this.isMuted) return;
     try {
@@ -273,14 +274,14 @@ class SoundEngine {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
 
-      // Grand C Major / G Major Celebration Fanfare
+      // Championship Brass Fanfare
       const notes = [
-        { f: 523.25, t: 0.0, d: 0.12 }, // C5
-        { f: 659.25, t: 0.12, d: 0.12 }, // E5
-        { f: 783.99, t: 0.24, d: 0.12 }, // G5
-        { f: 1046.50, t: 0.36, d: 0.40 }, // C6
-        { f: 880.00, t: 0.80, d: 0.15 }, // A5
-        { f: 1046.50, t: 0.95, d: 0.60 }, // High C6 triumphant hold
+        { f: 261.63, t: 0.0, d: 0.14 },  // C4
+        { f: 329.63, t: 0.14, d: 0.14 }, // E4
+        { f: 392.00, t: 0.28, d: 0.14 }, // G4
+        { f: 523.25, t: 0.42, d: 0.42 }, // C5
+        { f: 440.00, t: 0.86, d: 0.16 }, // A4
+        { f: 523.25, t: 1.04, d: 0.70 }, // C5 Grand Hold
       ];
 
       notes.forEach(({ f, t, d }) => {
@@ -288,11 +289,11 @@ class SoundEngine {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
-        osc.type = 'triangle';
+        osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(f, now + t);
 
         gain.gain.setValueAtTime(0, now + t);
-        gain.gain.linearRampToValueAtTime(0.24, now + t + 0.03);
+        gain.gain.linearRampToValueAtTime(0.18, now + t + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.001, now + t + d);
 
         osc.connect(gain);
@@ -302,23 +303,18 @@ class SoundEngine {
         osc.stop(now + t + d);
       });
 
-      // Excited, joyful BINGO winner callout!
+      // Clean, professional Bingo Winner announcement
       if (this.voiceEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
         setTimeout(() => {
           try {
             window.speechSynthesis.cancel();
-            const shout = new SpeechSynthesisUtterance(
-              "BINGO! Woohoo! Hold the cage, we have a superstar Bingo winner in the house! Fantastic job, congratulations!"
-            );
-            shout.rate = 1.14;
-            shout.pitch = 1.28;
+            const shout = new SpeechSynthesisUtterance('Bingo! We have a verified winner.');
+            shout.rate = 0.92;
+            shout.pitch = 0.85;
             shout.volume = 1.0;
 
-            const voices = window.speechSynthesis.getVoices();
-            const livelyVoice =
-              voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google US English') || v.name.includes('Samantha') || v.name.includes('Aria') || v.name.includes('Zira') || v.name.includes('Natural'))) ||
-              voices.find(v => v.lang.startsWith('en'));
-            if (livelyVoice) shout.voice = livelyVoice;
+            const maleVoice = this.cachedMaleVoice || this.selectMgmArenaMaleVoice();
+            if (maleVoice) shout.voice = maleVoice;
 
             window.speechSynthesis.speak(shout);
           } catch {}
@@ -354,3 +350,4 @@ class SoundEngine {
 }
 
 export const sound = new SoundEngine();
+

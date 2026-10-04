@@ -32,7 +32,6 @@ interface AuthContextType {
   enrollTotpMfa: (secret: string, code: string) => Promise<boolean>;
   resetAdminTotpMfa: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  loginAsDemoAdmin: (role?: AdminRole) => Promise<void>;
   logout: () => Promise<void>;
   setMfaVerified: (verified: boolean) => void;
 }
@@ -345,32 +344,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Demo Admin Quick-Session (for live evaluation & testing without blocked passwords)
-  const loginAsDemoAdmin = async (role: AdminRole = 'SUPER_ADMIN') => {
-    setLoading(true);
-    const demoAdminUser: AdminUser = {
-      id: 'usr_bootstrapped_admin',
-      email: BOOTSTRAPPED_ADMIN_EMAIL,
-      role,
-      createdAt: new Date().toISOString(),
-      mfaEnforced: true,
-      lastLogin: new Date().toISOString(),
-    };
-    setAdminProfile(demoAdminUser);
-    setMfaVerified(true);
-    try {
-      sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(demoAdminUser));
-    } catch {}
-    await appendAuditLog({
-      actorId: demoAdminUser.id,
-      actorEmail: demoAdminUser.email,
-      action: 'ADMIN_EVALUATION_SESSION_STARTED',
-      resource: 'admin/console',
-      metadata: { role },
-    });
-    setLoading(false);
-  };
-
   const logout = async () => {
     try {
       sessionStorage.removeItem(ADMIN_SESSION_KEY);
@@ -413,7 +386,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enrollTotpMfa,
         resetAdminTotpMfa,
         loginWithGoogle,
-        loginAsDemoAdmin,
         logout,
         setMfaVerified,
       }}

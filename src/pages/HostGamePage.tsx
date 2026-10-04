@@ -11,7 +11,6 @@ import {
   Check, 
   History,
   Timer,
-  Bot,
   Volume2,
   Gamepad2
 } from 'lucide-react';
@@ -22,7 +21,6 @@ import {
   subscribeToClaims,
   hostDrawNextItem, 
   updateGameStatus,
-  addDemoBots,
   createGameRoom
 } from '../services/gameService';
 import { DEFAULT_GAME_CONFIG } from '../game/seedData';
@@ -161,13 +159,6 @@ export const HostGamePage: React.FC = () => {
     await updateGameStatus(game.id, status, game.hostId);
   };
 
-  // Add Friendly Bots
-  const handleAddBots = async () => {
-    if (!game) return;
-    sound.playClick();
-    await addDemoBots(game.id, 4);
-  };
-
   const copyPinToClipboard = () => {
     if (!game) return;
     navigator.clipboard.writeText(game.pin);
@@ -271,15 +262,6 @@ export const HostGamePage: React.FC = () => {
           >
             <Gamepad2 className="w-4 h-4" />
             <span>JOIN WITH CARD</span>
-          </button>
-
-          <button
-            onClick={handleAddBots}
-            className="px-3.5 py-2.5 rounded-xl font-bold text-xs bg-purple-950/80 border border-purple-500/40 text-purple-300 hover:bg-purple-900 transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Add 4 friendly bot players"
-          >
-            <Bot className="w-4 h-4" />
-            <span>+4 BOTS</span>
           </button>
 
           {game.status !== 'FINISHED' && (
@@ -467,7 +449,7 @@ export const HostGamePage: React.FC = () => {
 
             {players.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400">
-                Share PIN <b className="text-amber-300">{game.pin}</b> with players or click <b>+4 BOTS</b>!
+                Share Room PIN <b className="text-amber-300">{game.pin}</b> with players to join the hall!
               </div>
             ) : (
               <div className="max-h-80 overflow-y-auto space-y-2 pr-1">

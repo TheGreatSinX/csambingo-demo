@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { 
   subscribeToGame, 
+  subscribeToPlayer,
   joinGameRoom, 
   updatePlayerMarkedCells, 
   submitBingoClaim,
@@ -100,13 +101,14 @@ export const PlayerGamePage: React.FC = () => {
     if (!gameId) return;
 
     let unsubGame: (() => void) | null = null;
+    let unsubPlayer: (() => void) | null = null;
     let unsubDraws: (() => void) | null = null;
     let unsubClaims: (() => void) | null = null;
 
     const init = async () => {
       try {
         setLoading(true);
-        const storedNick = localStorage.getItem(`cyber_bingo_nick_${gameId}`) || 'Lucky Player';
+        const storedNick = localStorage.getItem(`cyber_bingo_nick_${gameId}`) || 'Player 1';
         const isSoloSession = localStorage.getItem(`classic_bingo_solo_${gameId}`) === 'true';
         if (isSoloSession) {
           setAutoCallerActive(true);
@@ -114,6 +116,13 @@ export const PlayerGamePage: React.FC = () => {
 
         const p = await joinGameRoom(gameId, storedNick);
         setPlayer(p);
+
+        // Subscribe to real-time updates on this player's document (score, rank, hasWon)
+        unsubPlayer = subscribeToPlayer(gameId, p.id, (updatedPlayer) => {
+          if (updatedPlayer) {
+            setPlayer(updatedPlayer);
+          }
+        });
 
         // Ensure free space is marked by default
         const initialMarks = new Set<string>(p.markedIndices || []);
@@ -167,6 +176,7 @@ export const PlayerGamePage: React.FC = () => {
 
     return () => {
       if (unsubGame) unsubGame();
+      if (unsubPlayer) unsubPlayer();
       if (unsubDraws) unsubDraws();
       if (unsubClaims) unsubClaims();
       if (autoCallerTimerRef.current) clearInterval(autoCallerTimerRef.current);
@@ -179,6 +189,24 @@ export const PlayerGamePage: React.FC = () => {
     draws.forEach(d => s.add(d.value.trim().toUpperCase()));
     return s;
   }, [draws]);
+
+  // Helper to compute live score based on valid daubed squares (+10 pts each) + any claimed Bingo bonus
+  const computeNextScore = (nextMarked: Set<string>, currentPlayer: Player, currentGame: LiveGame): number => {
+    let validDaubCount = 0;
+    currentPlayer.card.forEach((row, r) => {
+      row.forEach((cell, c) => {
+        const k = toMarkedKey(r, c);
+        if (!cell.isFree && nextMarked.has(k) && drawnValuesSet.has(cell.value.trim().toUpperCase())) {
+          validDaubCount++;
+        }
+      });
+    });
+    const daubPoints = validDaubCount * 10;
+    const winBonus = (currentGame.winners || [])
+      .filter((w) => w.playerId === currentPlayer.id)
+      .reduce((sum, w) => sum + (w.score || 0), 0);
+    return daubPoints + winBonus;
+  };
 
   // Sound + Voice Callout on new draw + Auto-Daub if enabled
   useEffect(() => {
@@ -207,8 +235,10 @@ export const PlayerGamePage: React.FC = () => {
       });
 
       if (changed) {
+        const nextScore = computeNextScore(nextMarked, player, game);
         setMarkedKeys(nextMarked);
-        updatePlayerMarkedCells(game.id, player.id, Array.from(nextMarked));
+        setPlayer((prev) => (prev ? { ...prev, score: nextScore } : prev));
+        updatePlayerMarkedCells(game.id, player.id, Array.from(nextMarked), nextScore);
       }
     }
   }, [draws, autoDaub, player, game, drawnValuesSet]);
@@ -312,8 +342,10 @@ export const PlayerGamePage: React.FC = () => {
       nextMarked.add(key);
     }
 
+    const nextScore = computeNextScore(nextMarked, player, game);
     setMarkedKeys(nextMarked);
-    await updatePlayerMarkedCells(game.id, player.id, Array.from(nextMarked));
+    setPlayer((prev) => (prev ? { ...prev, score: nextScore } : prev));
+    await updatePlayerMarkedCells(game.id, player.id, Array.from(nextMarked), nextScore);
   };
 
   // Submit Bingo Claim
@@ -321,9 +353,13 @@ export const PlayerGamePage: React.FC = () => {
     if (!game || !player || claimLoading) return;
     if (!currentWinningCheck.hasWon) {
       sound.playError();
+      const penalty = game.configSnapshot.scoring.falseClaimPenalty || 25;
+      const penalizedScore = Math.max(0, (player.score || 0) - penalty);
+      setPlayer((prev) => (prev ? { ...prev, score: penalizedScore } : prev));
+      await updatePlayerMarkedCells(game.id, player.id, Array.from(markedKeys), penalizedScore);
       setClaimFeedback({
         type: 'error',
-        message: 'Not a Bingo yet! Keep daubing called numbers to complete a winning pattern.',
+        message: `False Bingo claim! -${penalty} PTS penalty applied. Complete a winning pattern first.`,
       });
       setTimeout(() => setClaimFeedback(null), 3500);
       return;
@@ -344,11 +380,13 @@ export const PlayerGamePage: React.FC = () => {
 
       if (res.success) {
         sound.playBingoVictory();
+        const awarded = res.scoreAwarded || 100;
+        setPlayer((prev) => (prev ? { ...prev, score: (prev.score || 0) + awarded, hasWon: true } : prev));
         setWinnerModalData({
           isOpen: true,
           nickname: player.nickname,
           pattern: currentWinningCheck.patternName,
-          score: res.scoreAwarded || 100,
+          score: awarded,
           rank: (game.winners?.length || 0) + 1,
           isSelf: true,
         });
@@ -469,9 +507,16 @@ export const PlayerGamePage: React.FC = () => {
             <span>{autoCallerActive ? 'AUTO-CALLER: ON' : 'AUTO-CALLER: OFF'}</span>
           </button>
 
-          <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-right">
-            <div className="text-[9px] font-bold text-slate-400 uppercase">SCORE</div>
-            <div className="font-mono font-black text-sm text-amber-400">{player.score || 0} PTS</div>
+          <div
+            className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-amber-500/40 text-right shadow-inner"
+            title="+10 PTS per daubed number | +100 Base Win + Rank Bonus on BINGO! | -25 PTS on False Claim"
+          >
+            <div className="text-[9px] font-bold text-amber-300/80 uppercase tracking-wider">
+              SCORE (+10/DAUB)
+            </div>
+            <div className="font-mono font-black text-sm text-amber-400">
+              {player.score || 0} PTS
+            </div>
           </div>
         </div>
       </div>

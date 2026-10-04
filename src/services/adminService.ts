@@ -66,40 +66,10 @@ export async function fetchAuditLogs(limitCount: number = 50): Promise<AuditLogI
     const snap = await getDocs(q);
     const logs: AuditLogItem[] = [];
     snap.forEach(d => logs.push(d.data() as AuditLogItem));
-    if (logs.length > 0) return logs;
-    return [
-      {
-        id: 'log_seed_init',
-        actorId: 'usr_bootstrapped_admin',
-        actorEmail: 'webdev.cybernetics@gmail.com',
-        action: 'SYSTEM_SOC_INITIALIZED',
-        resource: 'admin/dashboard',
-        timestamp: new Date().toISOString(),
-        metadata: { status: 'ONLINE', engine: '75-Ball Cyber Edition' },
-      },
-    ];
+    return logs;
   } catch (error) {
-    console.warn('Audit log read fallback:', error);
-    return [
-      {
-        id: 'log_eval_session',
-        actorId: 'usr_bootstrapped_admin',
-        actorEmail: 'webdev.cybernetics@gmail.com',
-        action: 'ADMIN_EVALUATION_SESSION_ACTIVE',
-        resource: 'admin/dashboard',
-        timestamp: new Date().toISOString(),
-        metadata: { role: 'SUPER_ADMIN', mfa: 'ENFORCED' },
-      },
-      {
-        id: 'log_engine_ready',
-        actorId: 'system',
-        actorEmail: 'system@cyberbingo.internal',
-        action: 'GAME_ENGINE_VERIFIED',
-        resource: 'game/engine',
-        timestamp: new Date(Date.now() - 120000).toISOString(),
-        metadata: { mode: '75-Ball Classic Bingo Cyber Edition' },
-      },
-    ];
+    console.warn('Audit log read error:', error);
+    return [];
   }
 }
 
@@ -507,13 +477,13 @@ export async function fetchAnalyticsSummary() {
     };
   } catch {
     return {
-      totalGames: 1,
-      activeGames: 1,
+      totalGames: 0,
+      activeGames: 0,
       completedGames: 0,
-      totalPlayers: 4,
-      totalWinners: 1,
-      totalDraws: 14,
-      patternFrequency: { 'Horizontal Row 3': 1 },
+      totalPlayers: 0,
+      totalWinners: 0,
+      totalDraws: 0,
+      patternFrequency: {},
     };
   }
 }

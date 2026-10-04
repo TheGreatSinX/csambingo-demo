@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, 
-  Sparkles, 
   Radio, 
   CheckCircle2, 
   AlertCircle,
@@ -12,7 +11,7 @@ import {
   Grid,
   Users
 } from 'lucide-react';
-import { findGameByPin, createGameRoom, addDemoBots, updateGameStatus } from '../services/gameService';
+import { findGameByPin, createGameRoom, updateGameStatus } from '../services/gameService';
 import { DEFAULT_GAME_CONFIG } from '../game/seedData';
 import { sound } from '../game/soundEngine';
 import { ClassicBingoBall } from '../components/ClassicBingoBall';
@@ -124,7 +123,7 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Play Instant Classic Bingo right now as a Player (with auto-caller & friendly bots)
+  // Play Instant Classic Bingo right now as a Player (with auto-caller)
   const handlePlaySoloWithBots = async () => {
     setLoading(true);
     setError(null);
@@ -139,10 +138,9 @@ export const HomePage: React.FC = () => {
         hostId,
         'caller@classicbingo.hall'
       );
-      await addDemoBots(newGame.id, 3);
       await updateGameStatus(newGame.id, 'ACTIVE', hostId);
 
-      const playerName = nickname.trim() || 'Lucky Player';
+      const playerName = nickname.trim() || 'Player 1';
       localStorage.setItem(`cyber_bingo_nick_${newGame.id}`, playerName);
       localStorage.setItem(`classic_bingo_solo_${newGame.id}`, 'true');
       navigate(`/game/${newGame.id}`);
@@ -162,15 +160,14 @@ export const HomePage: React.FC = () => {
     sound.playClick();
 
     try {
-      const demoHostId = `host_${Date.now()}`;
+      const hostId = `host_${Date.now()}`;
       const cfg = getConfigForPreset(selectedPreset);
       const newGame = await createGameRoom(
         cfg.name,
         cfg,
-        demoHostId,
+        hostId,
         'caller@classicbingo.hall'
       );
-      await addDemoBots(newGame.id, 4);
       navigate(`/host/${newGame.id}`);
     } catch (err: any) {
       console.error(err);

@@ -308,6 +308,27 @@ export async function joinGameRoom(
 }
 
 // 6. Subscriptions
+export function subscribeToPlayer(
+  gameId: string,
+  playerId: string,
+  onUpdate: (player: Player | null) => void
+) {
+  const docRef = doc(db, 'games', gameId, 'players', playerId);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        onUpdate(deserializePlayerFromFirestore(snap.data()));
+      } else {
+        onUpdate(null);
+      }
+    },
+    (err) => {
+      console.error('Error listening to player doc:', err);
+    }
+  );
+}
+
 export function subscribeToPlayers(gameId: string, onUpdate: (players: Player[]) => void) {
   const colRef = collection(db, 'games', gameId, 'players');
   return onSnapshot(colRef, (snap) => {
@@ -355,17 +376,22 @@ export function subscribeToClaims(gameId: string, onUpdate: (claims: BingoClaim[
   });
 }
 
-// 7. Player Marks a Cell
+// 7. Player Marks a Cell (Awards +10 pts per valid daubed cell, + Bingo Win Bonuses)
 export async function updatePlayerMarkedCells(
   gameId: string,
   playerId: string,
-  markedIndices: string[]
+  markedIndices: string[],
+  daubScore?: number
 ) {
   try {
-    await updateDoc(doc(db, 'games', gameId, 'players', playerId), {
+    const payload: Record<string, any> = {
       markedIndices,
       lastPing: new Date().toISOString(),
-    });
+    };
+    if (typeof daubScore === 'number') {
+      payload.score = daubScore;
+    }
+    await updateDoc(doc(db, 'games', gameId, 'players', playerId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}/players/${playerId}`);
   }
@@ -619,52 +645,3 @@ export async function addGameEvent(gameId: string, type: string, message: string
   }
 }
 
-// 12. Add Simulated Bots for Demo Mode!
-export async function addDemoBots(gameId: string, count: number = 4) {
-  const botNames = [
-    'Lucky Lucy',
-    'Bingo Bob',
-    'Grandma Rose',
-    'Jackpot Joe',
-    'Sunny Sam',
-    'Penny Prize',
-  ];
-
-  const game = await getGame(gameId);
-  if (!game) return;
-
-  for (let i = 0; i < Math.min(count, botNames.length); i++) {
-    const name = botNames[i];
-    const botId = `bot_${Date.now()}_${i}`;
-    const card = generateBingoCard(game.configSnapshot.board, game.configSnapshot.draw.contentType);
-    const initialMarked: string[] = [];
-    card.forEach((row, r) => {
-      row.forEach((cell, c) => {
-        if (cell.isFree) initialMarked.push(`${r}_${c}`);
-      });
-    });
-
-    const botPlayer: Player = {
-      id: botId,
-      gameId,
-      nickname: `🤖 ${name}`,
-      card,
-      markedIndices: initialMarked,
-      score: 0,
-      hasWon: false,
-      connected: true,
-      joinedAt: new Date().toISOString(),
-      isBot: true,
-    };
-
-    try {
-      await setDoc(doc(db, 'games', gameId, 'players', botId), serializePlayerForFirestore(botPlayer));
-    } catch {}
-  }
-
-  await updateDoc(doc(db, 'games', gameId), {
-    playerCount: increment(count),
-  });
-
-  await addGameEvent(gameId, 'BOTS_JOINED', `${count} friendly Bingo players have joined the hall.`);
-}

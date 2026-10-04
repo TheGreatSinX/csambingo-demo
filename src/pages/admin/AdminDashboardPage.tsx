@@ -32,7 +32,7 @@ import {
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { LiveGame, AuditLogItem, GameStatus } from '../../game/gameTypes';
-import { createGameRoom, addDemoBots, updateGameStatus } from '../../services/gameService';
+import { createGameRoom, updateGameStatus } from '../../services/gameService';
 import { DEFAULT_GAME_CONFIG } from '../../game/seedData';
 import { sound } from '../../game/soundEngine';
 import { useAuth } from '../../context/AuthContext';
@@ -140,9 +140,8 @@ export const AdminDashboardPage: React.FC = () => {
         'CLASSIC 75-BALL BINGO — CYBER EDITION',
         DEFAULT_GAME_CONFIG,
         hostId,
-        adminProfile?.email || 'webdev.cybernetics@gmail.com'
+        adminProfile?.email || 'juan.delacruz@company.com'
       );
-      await addDemoBots(newGame.id, 4);
       await loadAuxiliaryData();
       navigate(`/host/${newGame.id}`);
     } catch (err) {
