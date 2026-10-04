@@ -24,6 +24,7 @@ import { SYSTEM_PATTERNS } from '../game/seedData';
 import { WinnerModal } from '../components/WinnerModal';
 import { ClassicBingoBall } from '../components/ClassicBingoBall';
 import { sound } from '../game/soundEngine';
+import { purgeExpiredPlayerNickname, savePlayerNicknameWithTtl } from '../utils/playerSession';
 
 type DauberColorId = 'red' | 'blue' | 'emerald' | 'purple' | 'pink' | 'amber';
 
@@ -92,15 +93,27 @@ export const PlayerGamePage: React.FC = () => {
     const init = async () => {
       try {
         setLoading(true);
-        const storedNick = localStorage.getItem(`cyber_bingo_nick_${gameId}`) || 'Player 1';
+        const storedNick =
+          localStorage.getItem(`cyber_bingo_nick_${gameId}`) ||
+          purgeExpiredPlayerNickname() ||
+          'Player 1';
+        savePlayerNicknameWithTtl(storedNick);
 
         const p = await joinGameRoom(gameId, storedNick);
         setPlayer(p);
 
-        // Subscribe to real-time updates on this player's document (score, rank, hasWon)
+        // Subscribe to real-time updates on this player's document (score, rank, hasWon, and Play Again daub reset)
         unsubPlayer = subscribeToPlayer(gameId, p.id, (updatedPlayer) => {
           if (updatedPlayer) {
             setPlayer(updatedPlayer);
+            // Sync markedKeys when Host resets daubs on Play Again
+            const syncedMarks = new Set<string>(updatedPlayer.markedIndices || []);
+            updatedPlayer.card.forEach((row, r) =>
+              row.forEach((cell, c) => {
+                if (cell.isFree) syncedMarks.add(toMarkedKey(r, c));
+              })
+            );
+            setMarkedKeys(syncedMarks);
           }
         });
 
@@ -119,6 +132,12 @@ export const PlayerGamePage: React.FC = () => {
             setError('This Bingo Hall session has ended.');
           } else {
             setGame(g);
+            // If Host triggered Play Again (drawCount === 0 and winners emptied), seamlessly close winner modal & clear feedback
+            if (g.drawCount === 0 && (!g.winners || g.winners.length === 0)) {
+              lastAnnouncedDrawIdRef.current = null;
+              setClaimFeedback(null);
+              setWinnerModalData((prev) => (prev.isOpen ? { ...prev, isOpen: false } : prev));
+            }
           }
         });
 
@@ -131,16 +150,17 @@ export const PlayerGamePage: React.FC = () => {
           const verifiedClaims = claimList.filter(c => c.status === 'VERIFIED');
           if (verifiedClaims.length > 0) {
             const latest = verifiedClaims[0];
-            if (p && latest.playerId === p.id && !winnerModalData.isOpen) {
-              setWinnerModalData({
+            setWinnerModalData((prev) => {
+              if (prev.isOpen && prev.nickname === latest.playerNickname) return prev;
+              return {
                 isOpen: true,
                 nickname: latest.playerNickname,
                 pattern: latest.patternName,
                 score: latest.scoreAwarded || 100,
                 rank: 1,
-                isSelf: true,
-              });
-            }
+                isSelf: Boolean(p && latest.playerId === p.id),
+              };
+            });
           }
         });
 
@@ -317,7 +337,6 @@ export const PlayerGamePage: React.FC = () => {
       );
 
       if (res.success) {
-        sound.playBingoVictory();
         const awarded = res.scoreAwarded || 100;
         setPlayer((prev) => (prev ? { ...prev, score: (prev.score || 0) + awarded, hasWon: true } : prev));
         setWinnerModalData({

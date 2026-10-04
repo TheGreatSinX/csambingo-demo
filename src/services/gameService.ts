@@ -5,6 +5,7 @@ import {
   getDoc, 
   getDocs, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -24,7 +25,8 @@ import {
   GameStatus, 
   GameWinner,
   GameEvent,
-  BingoCell
+  BingoCell,
+  HallOfFameEntry
 } from '../game/gameTypes';
 import { generateBingoCard } from '../game/cardGenerator';
 import { drawNextItem } from '../game/drawEngine';
@@ -497,7 +499,7 @@ export async function submitBingoClaim(
         winRank: winnerRecord.rank,
       });
 
-      // Update game winners
+      // Update game winners and automatically pause the Caller Stage (or complete round if max winners reached)
       const currentWinners = game.winners || [];
       const updatedWinners = [...currentWinners, winnerRecord];
       const maxWinnersReached = !game.configSnapshot.rules.allowMultipleWinners || 
@@ -505,13 +507,51 @@ export async function submitBingoClaim(
 
       await updateDoc(doc(db, 'games', gameId), {
         winners: updatedWinners,
-        status: maxWinnersReached ? 'ROUND_COMPLETE' : 'WIN_DETECTED',
+        status: maxWinnersReached ? 'ROUND_COMPLETE' : 'PAUSED',
+      });
+
+      // Archive verified winner into Hall of Fame collection with game PIN, pattern, timestamp, and session details
+      const hofId = `hof_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const hofEntry: HallOfFameEntry = {
+        id: hofId,
+        gameId: game.id,
+        gamePin: game.pin,
+        gameTitle: game.title,
+        gameMode: game.configSnapshot.mode || 'classic',
+        roundNumber: game.roundNumber || 1,
+        playerId,
+        playerNickname,
+        patternName: winnerRecord.patternName,
+        scoreAwarded: result.scoreAwarded,
+        rank: winnerRecord.rank,
+        totalDrawsAtWin: draws.length,
+        wonAt: winnerRecord.wonAt,
+      };
+      await setDoc(doc(db, 'hallOfFame', hofId), stripUndefined(hofEntry)).catch((err) => {
+        console.warn('Hall of Fame write warning:', err);
+      });
+
+      // Also log verified winner in Audit Logs
+      await appendAuditLog({
+        actorId: playerId,
+        actorEmail: playerNickname,
+        action: 'HALL_OF_FAME_WINNER_VERIFIED',
+        resource: `games/${gameId}`,
+        metadata: {
+          pin: game.pin,
+          gameTitle: game.title,
+          roundNumber: game.roundNumber || 1,
+          playerNickname,
+          patternName: winnerRecord.patternName,
+          scoreAwarded: result.scoreAwarded,
+          rank: winnerRecord.rank,
+        },
       });
 
       await addGameEvent(
         gameId, 
         'BINGO_WIN', 
-        `🏆 BINGO! ${playerNickname} won with ${winnerRecord.patternName} (+${result.scoreAwarded} pts)!`
+        `🏆 WINNER FOUND! ${playerNickname} won with ${winnerRecord.patternName} (+${result.scoreAwarded} pts)! Caller stage paused.`
       );
 
       return {
@@ -665,6 +705,115 @@ export async function addGameEvent(gameId: string, type: string, message: string
     });
   } catch {
     // Non-fatal event write
+  }
+}
+
+// 12. Play Again — Archive Final Scores to Audit Logs, Reset Board & Clear All Player Daubs while retaining Room Settings & Players
+export async function resetGameRoundForPlayAgain(
+  gameId: string,
+  hostId?: string,
+  hostEmail?: string
+): Promise<void> {
+  const game = await getGame(gameId);
+  if (!game) throw new Error('Game room not found.');
+
+  const currentRound = game.roundNumber || 1;
+  const nextRound = currentRound + 1;
+
+  try {
+    // 1. Fetch all players to archive their final round scores before resetting
+    const playersSnap = await getDocs(collection(db, 'games', gameId, 'players'));
+    const finalStandings: Array<{
+      playerId: string;
+      nickname: string;
+      finalScore: number;
+      hasWon: boolean;
+      winRank?: number;
+    }> = [];
+
+    const playerDocs: Player[] = [];
+    playersSnap.forEach((pDoc) => {
+      const p = deserializePlayerFromFirestore(pDoc.data());
+      playerDocs.push(p);
+      finalStandings.push({
+        playerId: p.id,
+        nickname: p.nickname,
+        finalScore: p.score || 0,
+        hasWon: Boolean(p.hasWon),
+        winRank: p.winRank,
+      });
+    });
+
+    // Sort standings highest score first
+    finalStandings.sort((a, b) => b.finalScore - a.finalScore);
+
+    // 2. Confirm all final scores & winners are archived in Audit Logs before starting the new round
+    await appendAuditLog({
+      actorId: hostId || game.hostId,
+      actorEmail: hostEmail || game.hostEmail || 'host',
+      action: 'ROUND_SCORES_ARCHIVED_AND_PLAY_AGAIN',
+      resource: `games/${gameId}`,
+      metadata: {
+        pin: game.pin,
+        gameTitle: game.title,
+        completedRound: currentRound,
+        nextRound,
+        totalDraws: game.drawCount || 0,
+        winners: game.winners || [],
+        finalPlayerScores: finalStandings,
+      },
+    });
+
+    // 3. Clear all previous draws in subcollection
+    const drawsSnap = await getDocs(collection(db, 'games', gameId, 'draws'));
+    for (const d of drawsSnap.docs) {
+      await deleteDoc(doc(db, 'games', gameId, 'draws', d.id)).catch(() => {});
+    }
+
+    // 4. Clear all previous claims in subcollection
+    const claimsSnap = await getDocs(collection(db, 'games', gameId, 'claims'));
+    for (const c of claimsSnap.docs) {
+      await deleteDoc(doc(db, 'games', gameId, 'claims', c.id)).catch(() => {});
+    }
+
+    // 5. Clear all player daubs (keeping only FREE space marked) while retaining current player list
+    for (const p of playerDocs) {
+      const freeOnlyMarked: string[] = [];
+      p.card.forEach((row, r) => {
+        row.forEach((cell, c) => {
+          if (cell.isFree) {
+            freeOnlyMarked.push(`${r}_${c}`);
+          }
+        });
+      });
+
+      await updateDoc(doc(db, 'games', gameId, 'players', p.id), {
+        markedIndices: freeOnlyMarked,
+        score: 0,
+        hasWon: false,
+        winRank: 0,
+        lastPing: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
+    // 6. Reset game document for the new round while keeping PIN, title, configSnapshot, and playerCount
+    await updateDoc(doc(db, 'games', gameId), {
+      status: 'ACTIVE',
+      roundNumber: nextRound,
+      drawCount: 0,
+      currentDraw: null,
+      drawHistory: [],
+      winners: [],
+      startedAt: new Date().toISOString(),
+    });
+
+    await addGameEvent(
+      gameId,
+      'ROUND_RESET',
+      `🔄 Round ${nextRound} started! Final scores from Round ${currentRound} archived to Audit Logs and all player daubs cleared.`
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `games/${gameId}`);
   }
 }
 

@@ -20,7 +20,8 @@ import {
   AuditLogItem,
   AdminUser,
   GameConfig,
-  LiveGame
+  LiveGame,
+  HallOfFameEntry
 } from '../game/gameTypes';
 import {
   SEED_CYBER_TERMS,
@@ -347,6 +348,7 @@ export const ADMIN_SIDEBAR_ITEMS = [
   { path: '/admin/dashboard', label: 'SOC Dashboard', canHide: false },
   { path: '/admin/games', label: 'Active Games', canHide: true },
   { path: '/admin/games/create', label: 'Game Builder', canHide: true },
+  { path: '/admin/hall-of-fame', label: 'Hall of Fame', canHide: true },
   { path: '/admin/content', label: 'Content CMS', canHide: true },
   { path: '/admin/questions', label: 'Questions Bank', canHide: true },
   { path: '/admin/patterns', label: 'Pattern Editor', canHide: true },
@@ -356,6 +358,52 @@ export const ADMIN_SIDEBAR_ITEMS = [
   { path: '/admin/audit', label: 'Audit Trail', canHide: true },
   { path: '/admin/settings', label: 'Security & System', canHide: false },
 ] as const;
+
+export async function fetchHallOfFameEntries(limitCount: number = 100): Promise<HallOfFameEntry[]> {
+  try {
+    const q = query(collection(db, 'hallOfFame'), orderBy('wonAt', 'desc'), limit(limitCount));
+    const snap = await getDocs(q);
+    const entries: HallOfFameEntry[] = [];
+    snap.forEach((d) => entries.push(d.data() as HallOfFameEntry));
+
+    // Also include any historical winners embedded in games documents that pre-dated the hallOfFame collection
+    const gamesSnap = await getDocs(collection(db, 'games'));
+    const seenKeys = new Set(entries.map((e) => `${e.gameId}_${e.playerId}_${e.wonAt}`));
+
+    gamesSnap.forEach((gDoc) => {
+      const g = gDoc.data() as LiveGame;
+      if (Array.isArray(g.winners)) {
+        g.winners.forEach((w, idx) => {
+          const compositeKey = `${g.id}_${w.playerId}_${w.wonAt}`;
+          if (!seenKeys.has(compositeKey)) {
+            seenKeys.add(compositeKey);
+            entries.push({
+              id: `legacy_${g.id}_${idx}`,
+              gameId: g.id,
+              gamePin: g.pin,
+              gameTitle: g.title,
+              gameMode: g.configSnapshot?.mode || 'classic',
+              roundNumber: g.roundNumber || 1,
+              playerId: w.playerId,
+              playerNickname: w.nickname,
+              patternName: w.patternName,
+              scoreAwarded: w.score,
+              rank: w.rank || idx + 1,
+              totalDrawsAtWin: g.drawCount || 0,
+              wonAt: w.wonAt || g.createdAt,
+            });
+          }
+        });
+      }
+    });
+
+    entries.sort((a, b) => new Date(b.wonAt).getTime() - new Date(a.wonAt).getTime());
+    return entries;
+  } catch (error) {
+    console.warn('Hall of Fame read error:', error);
+    return [];
+  }
+}
 
 const HIDDEN_SIDEBAR_STORAGE_KEY = 'cyber_bingo_hidden_sidebar_paths';
 

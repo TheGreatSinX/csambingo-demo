@@ -180,6 +180,22 @@ export interface GameWinner {
   wonAt: string;
 }
 
+export interface HallOfFameEntry {
+  id: string;
+  gameId: string;
+  gamePin: string;
+  gameTitle: string;
+  gameMode: string;
+  roundNumber: number;
+  playerId: string;
+  playerNickname: string;
+  patternName: string;
+  scoreAwarded: number;
+  rank: number;
+  totalDrawsAtWin: number;
+  wonAt: string;
+}
+
 export interface LiveGame {
   id: string;
   pin: string;
@@ -188,6 +204,7 @@ export interface LiveGame {
   hostId: string;
   hostEmail?: string;
   configSnapshot: GameConfig;
+  roundNumber?: number;
   drawCount: number;
   currentDraw?: DrawItem | null;
   drawHistory: DrawItem[];

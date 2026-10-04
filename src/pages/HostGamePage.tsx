@@ -12,7 +12,8 @@ import {
   History,
   Timer,
   Volume2,
-  Gamepad2
+  Gamepad2,
+  RotateCcw
 } from 'lucide-react';
 import { 
   subscribeToGame, 
@@ -21,12 +22,14 @@ import {
   subscribeToClaims,
   hostDrawNextItem, 
   updateGameStatus,
-  createGameRoom
+  createGameRoom,
+  resetGameRoundForPlayAgain
 } from '../services/gameService';
 import { DEFAULT_GAME_CONFIG } from '../game/seedData';
 import { LiveGame, Player, DrawItem, BingoClaim, GameStatus } from '../game/gameTypes';
 import { ClassicBingoBall } from '../components/ClassicBingoBall';
 import { ClassicFlashboard } from '../components/ClassicFlashboard';
+import { WinnerModal } from '../components/WinnerModal';
 import { sound } from '../game/soundEngine';
 import { useAuth } from '../context/AuthContext';
 import { findActiveHostedGame } from '../services/gameService';
@@ -47,8 +50,18 @@ export const HostGamePage: React.FC = () => {
   const [autoDrawSecondsLeft, setAutoDrawSecondsLeft] = useState(5);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Winner Found announcement banner & modal state on the Caller Stage
+  const [winnerAnnouncement, setWinnerAnnouncement] = useState<{
+    isOpen: boolean;
+    nickname: string;
+    pattern: string;
+    score: number;
+    rank: number;
+  } | null>(null);
+
   const autoDrawTimerRef = useRef<any>(null);
   const lastAnnouncedDrawIdRef = useRef<string | null>(null);
+  const announcedWinnersCountRef = useRef<number | null>(null);
 
   // Enforce Admin + MFA check before allowing access to Caller Stage
   useEffect(() => {
@@ -123,6 +136,37 @@ export const HostGamePage: React.FC = () => {
     }
   }, [draws]);
 
+  // Automatically pause Caller Stage and trigger "Winner Found" announcement + Winning Player Name when a Bingo win is verified
+  useEffect(() => {
+    if (!game) return;
+    const winnersList = game.winners || [];
+    if (announcedWinnersCountRef.current === null) {
+      announcedWinnersCountRef.current = winnersList.length;
+      return;
+    }
+
+    if (winnersList.length > announcedWinnersCountRef.current) {
+      const latestWinner = winnersList[winnersList.length - 1];
+      announcedWinnersCountRef.current = winnersList.length;
+
+      // Immediately stop Auto-Caller interval and pause Caller Stage
+      setAutoDrawEnabled(false);
+      if (autoDrawTimerRef.current) {
+        clearInterval(autoDrawTimerRef.current);
+      }
+
+      if (latestWinner) {
+        setWinnerAnnouncement({
+          isOpen: true,
+          nickname: latestWinner.nickname,
+          pattern: latestWinner.patternName,
+          score: latestWinner.score,
+          rank: latestWinner.rank,
+        });
+      }
+    }
+  }, [game?.winners]);
+
   // Auto-draw interval loop
   useEffect(() => {
     if (!autoDrawEnabled || !game || game.status !== 'ACTIVE') {
@@ -174,6 +218,30 @@ export const HostGamePage: React.FC = () => {
       setAutoDrawEnabled(false);
     }
     await updateGameStatus(game.id, status, game.hostId);
+  };
+
+  // Play Again: Archive final scores to Audit Logs, reset board & clear player daubs while keeping room settings and players
+  const handlePlayAgain = async () => {
+    if (!game || actionLoading) return;
+    setActionLoading(true);
+    sound.playClick();
+    setAutoDrawEnabled(false);
+    if (autoDrawTimerRef.current) {
+      clearInterval(autoDrawTimerRef.current);
+    }
+
+    try {
+      await resetGameRoundForPlayAgain(
+        game.id,
+        user?.uid || game.hostId,
+        user?.email || game.hostEmail
+      );
+      lastAnnouncedDrawIdRef.current = null;
+      announcedWinnersCountRef.current = 0;
+      setWinnerAnnouncement(null);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const copyPinToClipboard = () => {
@@ -272,6 +340,21 @@ export const HostGamePage: React.FC = () => {
             </button>
           )}
 
+          {(game.status === 'ROUND_COMPLETE' ||
+            game.status === 'FINISHED' ||
+            game.status === 'WIN_DETECTED' ||
+            (game.winners && game.winners.length > 0)) && (
+            <button
+              onClick={handlePlayAgain}
+              disabled={actionLoading}
+              className="px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Archive final scores to Audit Logs, clear all player daubs, and start a fresh round in this hall"
+            >
+              <RotateCcw className={`w-4 h-4 ${actionLoading ? 'animate-spin' : ''}`} />
+              <span>{actionLoading ? 'RESETTING HALL...' : 'PLAY AGAIN'}</span>
+            </button>
+          )}
+
           <button
             onClick={() => navigate(`/game/${game.id}`)}
             className="px-3.5 py-2.5 rounded-xl font-bold text-xs bg-blue-600/30 border border-blue-400/50 text-blue-200 hover:bg-blue-600/40 transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -292,6 +375,58 @@ export const HostGamePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Winner Found Alert Banner on Caller Stage when Paused due to Verified Winner */}
+      {game.winners && game.winners.length > 0 && (game.status === 'PAUSED' || game.status === 'WIN_DETECTED' || game.status === 'ROUND_COMPLETE') && (
+        <div className="mb-6 rounded-3xl bg-gradient-to-r from-amber-500/25 via-emerald-500/20 to-cyan-500/25 border-2 border-amber-400 p-5 shadow-[0_0_40px_rgba(251,191,36,0.25)] flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="text-xs font-mono font-black uppercase tracking-widest text-amber-300">
+                🏆 WINNER FOUND — CALLER STAGE AUTOMATICALLY PAUSED
+              </div>
+              <div className="text-lg sm:text-2xl font-black text-white">
+                {game.winners[game.winners.length - 1].nickname}{' '}
+                <span className="text-emerald-300 text-sm sm:text-base font-bold">
+                  ({game.winners[game.winners.length - 1].patternName} • +{game.winners[game.winners.length - 1].score} PTS)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => {
+                const latestWin = game.winners[game.winners.length - 1];
+                sound.playBingoVictory(latestWin.nickname, latestWin.patternName);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/60 text-amber-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Volume2 className="w-4 h-4" />
+              <span>Re-Announce Winner</span>
+            </button>
+            {game.status === 'PAUSED' && (
+              <button
+                onClick={() => handleStatusChange('ACTIVE')}
+                className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-slate-950" />
+                <span>RESUME CALLING</span>
+              </button>
+            )}
+            <button
+              onClick={handlePlayAgain}
+              disabled={actionLoading}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-sky-400 hover:from-cyan-300 hover:to-sky-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className={`w-4 h-4 ${actionLoading ? 'animate-spin' : ''}`} />
+              <span>{actionLoading ? 'ARCHIVING & RESETTING...' : 'PLAY AGAIN (NEW ROUND)'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Left Caller Hopper & 75-Ball Flashboard (8 cols), Right Players & Winners (4 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -519,6 +654,19 @@ export const HostGamePage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Winner Found Celebration Modal & Voice Announcement on Caller Stage */}
+      {winnerAnnouncement && (
+        <WinnerModal
+          isOpen={winnerAnnouncement.isOpen}
+          onClose={() => setWinnerAnnouncement(null)}
+          winnerNickname={winnerAnnouncement.nickname}
+          patternName={winnerAnnouncement.pattern}
+          scoreAwarded={winnerAnnouncement.score}
+          rank={winnerAnnouncement.rank}
+          isSelf={false}
+        />
+      )}
     </div>
   );
 };

@@ -26,13 +26,18 @@ import { ClassicBingoBall } from '../components/ClassicBingoBall';
 import { FloatingBingoBackground } from '../components/FloatingBingoBackground';
 import { useAuth } from '../context/AuthContext';
 import { generateBase32Secret, buildOtpAuthUri } from '../utils/totp';
+import {
+  purgeExpiredPlayerNickname,
+  savePlayerNicknameWithTtl,
+  getNicknameSessionRemainingLabel
+} from '../utils/playerSession';
 
 type QuickPatternPreset = 'standard' | 'x_pattern' | 'postage' | 'blackout';
 
 export const HomePage: React.FC = () => {
-  // Inline card PIN & Nickname state
+  // Inline card PIN & Nickname state (pre-filled from 8-hour TTL session if valid)
   const [pin, setPin] = useState('');
-  const [nickname, setNickname] = useState('');
+  const [nickname, setNickname] = useState(() => purgeExpiredPlayerNickname() || '');
   const [selectedPreset, setSelectedPreset] = useState<QuickPatternPreset>('standard');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +45,34 @@ export const HomePage: React.FC = () => {
   // 1. Glassmorphic Light-Blue Modal for "PLAY CLASSIC BINGO NOW" (6-Digit Room PIN)
   const [showPinModal, setShowPinModal] = useState(false);
   const [modalPin, setModalPin] = useState('');
-  const [modalNickname, setModalNickname] = useState('');
+  const [modalNickname, setModalNickname] = useState(() => purgeExpiredPlayerNickname() || '');
   const [modalPinError, setModalPinError] = useState<string | null>(null);
+  const [sessionRemainingLabel, setSessionRemainingLabel] = useState<string | null>(() =>
+    getNicknameSessionRemainingLabel()
+  );
+
+  // Periodically run the 8-hour TTL cleanup check while on the landing page
+  React.useEffect(() => {
+    const validNick = purgeExpiredPlayerNickname();
+    if (validNick) {
+      setNickname((prev) => prev || validNick);
+      setModalNickname((prev) => prev || validNick);
+      setSessionRemainingLabel(getNicknameSessionRemainingLabel());
+    } else {
+      setSessionRemainingLabel(null);
+    }
+
+    const cleanupInterval = setInterval(() => {
+      const stillValid = purgeExpiredPlayerNickname();
+      if (!stillValid) {
+        setSessionRemainingLabel(null);
+      } else {
+        setSessionRemainingLabel(getNicknameSessionRemainingLabel());
+      }
+    }, 60_000);
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   // 2. Glassmorphic Light-Blue Modal for "HOST LIVE BINGO HALL (CALLER)" (Admin MFA + Single Host)
   const [showHostMfaModal, setShowHostMfaModal] = useState(false);
@@ -158,6 +189,9 @@ export const HomePage: React.FC = () => {
         return;
       }
 
+      // Persist player nickname with 8-hour TTL so returning players only need to enter the 6-digit PIN
+      savePlayerNicknameWithTtl(finalNickname);
+      setSessionRemainingLabel(getNicknameSessionRemainingLabel());
       localStorage.setItem(`cyber_bingo_nick_${game.id}`, finalNickname);
       setShowPinModal(false);
       navigate(`/game/${game.id}`);
@@ -182,8 +216,11 @@ export const HomePage: React.FC = () => {
   // 1. Clicking "PLAY CLASSIC BINGO NOW" opens the Glassmorphic Light-Blue 6-Digit PIN Modal
   const handleOpenPlayPinModal = () => {
     sound.playClick();
+    // Run 8-hour TTL cleanup and pre-fill stored nickname if still valid
+    const storedValidNick = purgeExpiredPlayerNickname();
     setModalPin(pin);
-    setModalNickname(nickname);
+    setModalNickname(storedValidNick || nickname);
+    setSessionRemainingLabel(getNicknameSessionRemainingLabel());
     setModalPinError(null);
     setShowPinModal(true);
   };
@@ -541,9 +578,16 @@ export const HomePage: React.FC = () => {
 
             <form onSubmit={handleModalPinSubmit} className="relative z-10 space-y-4">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-sky-100 mb-1.5">
-                  YOUR PLAYER NICKNAME
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-sky-100">
+                    YOUR PLAYER NICKNAME
+                  </label>
+                  {sessionRemainingLabel && modalNickname && (
+                    <span className="text-[10px] font-mono text-emerald-200 bg-emerald-950/60 border border-emerald-400/40 px-2 py-0.5 rounded-full">
+                      Saved ({sessionRemainingLabel} left)
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   maxLength={24}

@@ -24,10 +24,10 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
 }) => {
   useEffect(() => {
     if (isOpen) {
-      sound.playBingoVictory();
+      sound.playBingoVictory(winnerNickname, patternName);
       fireCyberConfetti();
     }
-  }, [isOpen]);
+  }, [isOpen, winnerNickname, patternName]);
 
   if (!isOpen) return null;
 
@@ -81,7 +81,7 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
           id="winner-title"
           className="font-cyber font-extrabold text-3xl sm:text-4xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-green-300 to-emerald-400 mb-2 uppercase"
         >
-          {isSelf ? 'BINGO ACHIEVED!' : 'BINGO DETECTED!'}
+          {isSelf ? 'WINNER FOUND — YOU GOT BINGO!' : 'WINNER FOUND!'}
         </h2>
 
         {/* Nickname */}

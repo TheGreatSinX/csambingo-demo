@@ -14,7 +14,8 @@ import {
   Settings, 
   LogOut, 
   Lock,
-  UserCheck
+  UserCheck,
+  Trophy
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { sound } from '../../game/soundEngine';
@@ -56,6 +57,7 @@ export const AdminLayout: React.FC = () => {
     { path: '/admin/dashboard', label: 'SOC Dashboard', icon: LayoutDashboard },
     { path: '/admin/games', label: 'Active Games', icon: Gamepad2 },
     { path: '/admin/games/create', label: 'Game Builder', icon: PlusCircle },
+    { path: '/admin/hall-of-fame', label: 'Hall of Fame', icon: Trophy },
     { path: '/admin/content', label: 'Content CMS', icon: FileText },
     { path: '/admin/questions', label: 'Questions Bank', icon: HelpCircle },
     { path: '/admin/patterns', label: 'Pattern Editor', icon: Grid },

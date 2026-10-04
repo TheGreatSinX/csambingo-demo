@@ -172,6 +172,15 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(templateId);
     }
 
+    // --- Hall of Fame (Historical Winners Archive) ---
+    match /hallOfFame/{entryId} {
+      allow get, list: if true;
+      allow create: if isValidId(entryId) &&
+        incoming().keys().hasAll(['id', 'gameId', 'gamePin', 'gameTitle', 'playerId', 'playerNickname', 'patternName', 'scoreAwarded', 'wonAt']) &&
+        incoming().id == entryId;
+      allow update, delete: if isAdmin() && isValidId(entryId);
+    }
+
     // --- Audit Logs ---
     match /auditLogs/{logId} {
       allow get, list: if true;

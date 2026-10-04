@@ -21,6 +21,7 @@ import { AdminTemplatesPage } from './pages/admin/AdminTemplatesPage';
 import { AdminAnalyticsPage } from './pages/admin/AdminAnalyticsPage';
 import { AdminAuditPage } from './pages/admin/AdminAuditPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
+import { AdminHallOfFamePage } from './pages/admin/AdminHallOfFamePage';
 
 import { seedInitialDataIfEmpty } from './services/adminService';
 
@@ -100,6 +101,7 @@ export default function App() {
               <Route path="dashboard" element={<AdminDashboardPage />} />
               <Route path="games" element={<AdminGamesPage />} />
               <Route path="games/create" element={<AdminGameBuilderPage />} />
+              <Route path="hall-of-fame" element={<AdminHallOfFamePage />} />
               <Route path="content" element={<AdminContentPage />} />
               <Route path="questions" element={<AdminQuestionsPage />} />
               <Route path="patterns" element={<AdminPatternsPage />} />

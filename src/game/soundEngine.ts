@@ -267,7 +267,7 @@ class SoundEngine {
   }
 
   // Triumphant Bingo Victory Fanfare & Clean Professional Caller Announcement
-  public playBingoVictory() {
+  public playBingoVictory(winnerNickname?: string, patternName?: string) {
     if (this.isMuted) return;
     try {
       this.initCtx();
@@ -303,12 +303,17 @@ class SoundEngine {
         osc.stop(now + t + d);
       });
 
-      // Clean, professional Bingo Winner announcement
+      // Clean, professional Bingo Winner announcement with Winner Found & Winner Name
       if (this.voiceEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
         setTimeout(() => {
           try {
             window.speechSynthesis.cancel();
-            const shout = new SpeechSynthesisUtterance('Bingo! We have a verified winner.');
+            const cleanName = winnerNickname?.trim();
+            const textToSpeak = cleanName
+              ? `Winner Found! Bingo! Congratulations to ${cleanName}${patternName ? ` with ${patternName}` : ''}!`
+              : 'Winner Found! Bingo! We have a verified winner.';
+
+            const shout = new SpeechSynthesisUtterance(textToSpeak);
             shout.rate = 0.92;
             shout.pitch = 0.85;
             shout.volume = 1.0;
