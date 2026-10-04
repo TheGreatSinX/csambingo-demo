@@ -202,6 +202,29 @@ export async function findGameByPin(pin: string): Promise<LiveGame | null> {
   }
 }
 
+// 2b. Check if an active or lobby game is already being hosted (Single-Host Enforcement)
+export async function findActiveHostedGame(): Promise<LiveGame | null> {
+  try {
+    const q = query(collection(db, 'games'), orderBy('createdAt', 'desc'), limit(15));
+    const snapshot = await getDocs(q);
+    for (const d of snapshot.docs) {
+      const g = d.data() as LiveGame;
+      if (
+        g.status === 'LOBBY' ||
+        g.status === 'STARTING' ||
+        g.status === 'ACTIVE' ||
+        g.status === 'PAUSED' ||
+        g.status === 'WIN_DETECTED'
+      ) {
+        return g;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // 3. Get single game doc
 export async function getGame(gameId: string): Promise<LiveGame | null> {
   try {

@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Sparkles, 
   Volume2, 
   VolumeX, 
-  Gamepad2, 
-  Radio, 
   Settings, 
   LogOut, 
   UserCheck,
-  Menu,
-  X,
   Mic,
   MicOff
 } from 'lucide-react';
@@ -20,7 +15,6 @@ import { useAuth } from '../context/AuthContext';
 export const Navbar: React.FC = () => {
   const [muted, setMuted] = useState(sound.getIsMuted());
   const [voiceOn, setVoiceOn] = useState(sound.getVoiceEnabled());
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { user, isAdmin, role, logout } = useAuth();
 
@@ -37,8 +31,6 @@ export const Navbar: React.FC = () => {
     setVoiceOn(next);
     sound.playClick();
   };
-
-  const isCurrent = (path: string) => location.pathname === path;
 
   return (
     <header className="sticky top-0 z-50 bg-[#0b0e1a]/95 backdrop-blur-md border-b border-amber-500/30 shadow-lg shadow-black/40">
@@ -73,55 +65,7 @@ export const Navbar: React.FC = () => {
             </div>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 sm:gap-2">
-            <Link
-              to="/"
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                isCurrent('/') 
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm' 
-                  : 'text-slate-300 hover:text-amber-300 hover:bg-slate-900'
-              }`}
-              onClick={() => sound.playClick()}
-            >
-              <span className="flex items-center gap-1.5">
-                <Gamepad2 className="w-4 h-4" />
-                PLAY BINGO
-              </span>
-            </Link>
-
-            <Link
-              to="/host"
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                location.pathname.startsWith('/host')
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm'
-                  : 'text-slate-300 hover:text-emerald-300 hover:bg-slate-900'
-              }`}
-              onClick={() => sound.playClick()}
-            >
-              <span className="flex items-center gap-1.5">
-                <Radio className="w-4 h-4" />
-                CALLER STAGE (HOST)
-              </span>
-            </Link>
-
-            <Link
-              to="/admin/dashboard"
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                location.pathname.startsWith('/admin')
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-sm'
-                  : 'text-slate-300 hover:text-purple-300 hover:bg-slate-900'
-              }`}
-              onClick={() => sound.playClick()}
-            >
-              <span className="flex items-center gap-1.5">
-                <Settings className="w-4 h-4" />
-                HALL MANAGER
-              </span>
-            </Link>
-          </nav>
-
-          {/* Right Controls: Voice Caller + Audio + Auth Info */}
+          {/* Right Controls: Voice Caller + Sound Icon + Gear Icon + Auth Info */}
           <div className="flex items-center gap-2">
             {/* Voice Caller Announcer Toggle */}
             <button
@@ -132,7 +76,7 @@ export const Navbar: React.FC = () => {
                   ? 'bg-amber-950/60 border-amber-500/40 text-amber-300 hover:bg-amber-900/60'
                   : 'bg-slate-900/80 border-slate-700/60 text-slate-500 hover:text-slate-300'
               }`}
-              title={voiceOn ? 'Voice Caller Active ("B-12!")' : 'Voice Caller Off'}
+              title={voiceOn ? 'Voice Caller Active ("B 12")' : 'Voice Caller Off'}
             >
               {voiceOn && !muted ? <Mic className="w-3.5 h-3.5 text-amber-400" /> : <MicOff className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">CALLER</span>
@@ -147,6 +91,21 @@ export const Navbar: React.FC = () => {
             >
               {muted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
             </button>
+
+            {/* Admin Console Gear Icon (Directly after Sound Icon) */}
+            <Link
+              to="/admin/dashboard"
+              onClick={() => sound.playClick()}
+              aria-label="Administrator Console"
+              title="Administrator Console"
+              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                location.pathname.startsWith('/admin')
+                  ? 'bg-purple-950/70 border-purple-400/60 text-purple-300 shadow-sm'
+                  : 'bg-slate-900/80 border-slate-700/60 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/40'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
 
             {/* Admin Status Chip */}
             {isAdmin && (
@@ -167,45 +126,10 @@ export const Navbar: React.FC = () => {
                 <span className="hidden md:inline">EXIT</span>
               </button>
             )}
-
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-300 hover:text-amber-400 bg-slate-900 border border-slate-700"
-              aria-label="Toggle navigation menu"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile menu dropdown */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-slate-800 bg-[#0b0e1a] space-y-2">
-            <Link
-              to="/"
-              className="block px-3 py-2 rounded text-sm font-bold text-slate-200 hover:bg-amber-950/50 hover:text-amber-300"
-              onClick={() => { setMobileMenuOpen(false); sound.playClick(); }}
-            >
-              PLAY BINGO (SOLO OR JOIN PIN)
-            </Link>
-            <Link
-              to="/host"
-              className="block px-3 py-2 rounded text-sm font-bold text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-300"
-              onClick={() => { setMobileMenuOpen(false); sound.playClick(); }}
-            >
-              CALLER STAGE (HOST ROOM)
-            </Link>
-            <Link
-              to="/admin/dashboard"
-              className="block px-3 py-2 rounded text-sm font-bold text-slate-200 hover:bg-purple-950/50 hover:text-purple-300"
-              onClick={() => { setMobileMenuOpen(false); sound.playClick(); }}
-            >
-              HALL MANAGER CONSOLE
-            </Link>
-          </div>
-        )}
       </div>
     </header>
   );
 };
+

@@ -28,10 +28,13 @@ import { LiveGame, Player, DrawItem, BingoClaim, GameStatus } from '../game/game
 import { ClassicBingoBall } from '../components/ClassicBingoBall';
 import { ClassicFlashboard } from '../components/ClassicFlashboard';
 import { sound } from '../game/soundEngine';
+import { useAuth } from '../context/AuthContext';
+import { findActiveHostedGame } from '../services/gameService';
 
 export const HostGamePage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const { user, isAdmin, mfaVerified, loading: authLoading } = useAuth();
 
   const [game, setGame] = useState<LiveGame | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -47,22 +50,36 @@ export const HostGamePage: React.FC = () => {
   const autoDrawTimerRef = useRef<any>(null);
   const lastAnnouncedDrawIdRef = useRef<string | null>(null);
 
-  // If no gameId provided in URL, automatically launch a Classic 75-Ball Hall
+  // Enforce Admin + MFA check before allowing access to Caller Stage
   useEffect(() => {
+    if (authLoading) return;
+    if (!user || !isAdmin || !mfaVerified) {
+      navigate('/', { replace: true });
+    }
+  }, [authLoading, user, isAdmin, mfaVerified, navigate]);
+
+  // If no gameId provided in URL, check for an existing active hall (single-host rule) or create one
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin || !mfaVerified) return;
     if (!gameId) {
       const launchDefault = async () => {
         setLoading(true);
+        const existing = await findActiveHostedGame();
+        if (existing) {
+          navigate(`/host/${existing.id}`, { replace: true });
+          return;
+        }
         const newGame = await createGameRoom(
           'CLASSIC 75-BALL BINGO HALL',
           DEFAULT_GAME_CONFIG,
-          'host_primary',
-          'caller@classicbingo.hall'
+          user.uid,
+          user.email || 'admin@company.com'
         );
         navigate(`/host/${newGame.id}`, { replace: true });
       };
       launchDefault();
     }
-  }, [gameId, navigate]);
+  }, [gameId, navigate, authLoading, user, isAdmin, mfaVerified]);
 
   // Subscriptions
   useEffect(() => {
